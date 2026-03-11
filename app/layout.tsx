@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Inter, Playfair_Display, Poppins } from "next/font/google";
 import "./globals.css";
 import AuthProviders from "@/lib/authProvider";
 
@@ -16,6 +16,12 @@ const playfair = Playfair_Display({
   weight: ["400","500","600","700","800"],
 })
 
+const poppins = Poppins({
+  subsets:['latin'],
+  variable: "--font-poppins",
+  weight: ["400","500","600","700","800"],
+})
+
 export const metadata: Metadata = {
   title: "ApplFix",
   description: "Your all in one stop solution",
@@ -29,7 +35,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${playfair.variable} antialiased`}
+        className={`${inter.variable} ${poppins.variable} antialiased`}
       >
         <AuthProviders>
           {children}

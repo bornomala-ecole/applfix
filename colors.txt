@@ -1,0 +1,50 @@
+Section	Color
+Hero	#FFFFFF
+Products	#F5F6F8
+Features	#FFFFFF
+Footer	#111111
+
+Header Background:
+⚫ #111111
+
+Text:
+⚪ #FFFFFF
+
+CTA Button:
+🔴 #E5092F
+
+
+Header: #111111
+Menu Text: #FFFFFF
+Hover: #E5092F
+
+Button primary:
+bg #E5092F
+hover bg: #C50726
+text #fff
+
+
+Button secondary:
+bg #111111
+hover bg: #2A2A2A
+text #fff
+
+product card:
+bg: #FFFFFF
+border: #E6E6E6
+price text: #E5092F
+
+Footer
+bg: #111111
+text #CCCCCC
+link #E5092F
+
+
+Use	Color
+Success	#28A745
+Warning	#FFC107
+Error	#E5092F
+
+main text: #222222
+secondary text #666666
+heading: #111111

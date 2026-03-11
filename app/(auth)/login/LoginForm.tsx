@@ -3,6 +3,8 @@
 import { signIn } from "next-auth/react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from 'react-toastify'
+import Image from "next/image"
 
 export default function LoginForm() {
   const router = useRouter()
@@ -24,13 +26,18 @@ export default function LoginForm() {
       setError("Invalid email or password")
       return
     }
+    toast.success("Login successful!")
+    // router.refresh()
+    // router.push("/dashboard")
 
-    router.refresh()
-    router.push("/dashboard")
+    setTimeout(() => {
+      router.push("/dashboard")
+    }, 1500)
   }
 
   return (
-    <>
+    <div className="login_page flex flex-col items-center">
+      <h1>Please enter your credential to login or use Google login</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-[350px]">
         {error && <p className="text-red-500">{error}</p>}
 
@@ -50,23 +57,23 @@ export default function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <button className="bg-black text-white p-2">
+        <button className="bg-black text-white p-2 cursor-pointer">
           Login
         </button>
       </form>
       <button
         type="button"
         onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-        className="bg-red-500 text-white p-2 flex items-center justify-center gap-2"
+        className="bg-[#902e2e] cursor-pointer text-white p-2 flex items-center justify-center gap-2 mt-6"
       >
         <img
-          src="/google-icon.svg"
+          src="/images/google.png"
           alt="Google"
           className="w-5 h-5"
         />
         Login with Google
       </button>
-    </>
+    </div>
 
     
   )
