@@ -113,10 +113,10 @@ export default function Header() {
         <div className="header_bottom hidden lg:block bg-primaryRed py-2">
           <div className="container">
             <ul className="flex gap-2 items-center  ">
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/" />Home</li>
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/" />Shop</li>
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/" /></li>
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/" /></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/" >Home</Link></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/shop" >Shop</Link></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/about" >About</Link></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/contact" >Contact</Link></li>
             </ul>
           </div>
         </div>
