@@ -81,15 +81,33 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       return true
     },
 
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = user.role
-        // token.role = (user as any).role
-      }
+    // async jwt({ token, user }) {
+    //   if (user) {
+    //     token.id = user.id
+    //     token.role = user.role
+    //   }
 
+    //   return token
+    // },
+    
+    async jwt({ token, user }) {
+      await connectDB()
+  
+      // On first login, or whenever token has email, sync from DB
+      if (token.email) {
+        const dbUser = await User.findOne({ email: token.email }).select("_id role")
+  
+        if (dbUser) {
+          token.id = dbUser._id.toString()
+          token.role = dbUser.role
+        }
+      }
+  
       return token
     },
+
+
+
 
     async session({ session, token }) {
       if (session.user) {

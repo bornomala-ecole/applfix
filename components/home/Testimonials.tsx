@@ -125,7 +125,7 @@ export default function Testimonials() {
                   </div>
 
                   {/* Comment */}
-                  <p className="mb-6 flex-grow text-gray-700">
+                  <p className="mb-6 grow text-gray-700">
                     "{testimonial.comment}"
                   </p>
 

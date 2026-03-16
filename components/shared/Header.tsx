@@ -8,6 +8,7 @@ import {User, Heart, ShoppingCart, CircleUser, LogIn, UserPlus, LayoutDashboard,
 import CartDrawer from "../cart/CartDrawer"
 import MobileMenuDrawer from "./MobileMenuDrawer"
 export default function Header() {
+
   const { data: session, status } = useSession()
   const [showUserItems, setShowUserItems] = useState(false)
   const [showCart, setShowCart] = useState(false)
@@ -117,6 +118,9 @@ export default function Header() {
               <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/shop" >Shop</Link></li>
               <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/about" >About</Link></li>
               <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/contact" >Contact</Link></li>
+              {session ? (
+                <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href={session.user.role === 'user' ? '/dashboard' : '/admin/dashboard' }>Dashboard</Link></li>
+              ) : ('')}
             </ul>
           </div>
         </div>

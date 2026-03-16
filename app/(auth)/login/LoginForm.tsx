@@ -1,6 +1,6 @@
 "use client"
 
-import { signIn } from "next-auth/react"
+import { signIn, getSession } from "next-auth/react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from 'react-toastify'
@@ -30,8 +30,15 @@ export default function LoginForm() {
     // router.refresh()
     // router.push("/dashboard")
 
+    // console.log("Login form:",res)
+
+    const session = await getSession();
     setTimeout(() => {
-      router.push("/dashboard")
+      if (session?.user?.role === "admin" || session?.user?.role === 'superAdmin') {
+        router.push("/admin/dashboard")
+      } else {
+        router.push("/dashboard")
+      }
     }, 1500)
   }
 

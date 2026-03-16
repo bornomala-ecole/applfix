@@ -98,7 +98,7 @@ export default function LatestNews() {
                 </Link>
 
                 {/* Excerpt */}
-                <p className="mb-4 flex-grow text-sm text-gray-600 line-clamp-3">
+                <p className="mb-4 grow text-sm text-gray-600 line-clamp-3">
                   {post.excerpt}
                 </p>
 

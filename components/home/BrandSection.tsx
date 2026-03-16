@@ -56,7 +56,7 @@ export default function BrandSection() {
             <Link
               key={brand.id}
               href={brand.link}
-              className="group flex flex-col items-center justify-center rounded-lg border p-6 transition hover:border-[var(--color-primary)]"
+              className="group flex flex-col items-center justify-center rounded-lg border p-6 transition hover:border-primary]"
             >
               <div className="relative h-[50px] w-[120px]">
                 <Image

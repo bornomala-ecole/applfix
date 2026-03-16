@@ -32,7 +32,7 @@ export default function ProductOptions({
               onClick={() => setSelectedColor(color.name)}
               className={`h-10 w-10 rounded-full border-2 transition-all ${
                 selectedColor === color.name
-                  ? "ring-2 ring-offset-2 ring-[var(--color-primary)]"
+                  ? "ring-2 ring-offset-2 ring-primary]"
                   : "border-gray-300"
               }`}
               style={{ backgroundColor: color.hex }}
@@ -56,7 +56,7 @@ export default function ProductOptions({
               onClick={() => setSelectedStorage(storage.size)}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 selectedStorage === storage.size
-                  ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white"
+                  ? "border-primary] bg-primary] text-white"
                   : "border-gray-300 text-gray-700 hover:bg-gray-50"
               }`}
             >

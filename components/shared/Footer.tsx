@@ -109,15 +109,15 @@ export default function Footer() {
             <h3 className="mb-4 text-base font-semibold text-white">Get in Touch</h3>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-3">
-                <Mail size={18} className="flex-shrink-0" />
+                <Mail size={18} className="shrink-0" />
                 <span>support@yourstore.com</span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone size={18} className="flex-shrink-0" />
+                <Phone size={18} className="shrink-0" />
                 <span>+1 (555) 123-4567</span>
               </li>
               <li className="flex items-start gap-3">
-                <MapPin size={18} className="flex-shrink-0 mt-0.5" />
+                <MapPin size={18} className="shrink-0 mt-0.5" />
                 <span>123 Tech Street<br />Silicon Valley, CA 94025</span>
               </li>
             </ul>

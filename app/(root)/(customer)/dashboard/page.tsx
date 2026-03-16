@@ -1,6 +1,5 @@
 import React from 'react'
 import { requireAuth } from '@/lib/auth-guard'
-import { redirect } from "next/navigation"
 
 
 const DahsboardPage = async () => {
@@ -8,7 +7,7 @@ const DahsboardPage = async () => {
   // console.log("Session from dashboard page:", session)
 
   return (
-    <div>DahsboardPage</div>
+    <div>Customer Dahsboard Page</div>
   )
 }
 
