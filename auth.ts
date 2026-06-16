@@ -1,18 +1,25 @@
 import NextAuth from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import GoogleProvider from "next-auth/providers/google"
-
+import Google from "next-auth/providers/google"
+import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
-import { connectDB } from "@/lib/db"
-import User from "@/lib/models/User"
+
+import { PrismaAdapter } from "@auth/prisma-adapter"
+import { prisma } from "@/lib/prisma"
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
+
   session: {
     strategy: "jwt",
   },
 
   providers: [
-    CredentialsProvider({
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+
+    Credentials({
       name: "Credentials",
 
       credentials: {
@@ -25,10 +32,11 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           throw new Error("Email and password are required")
         }
       
-        await connectDB()
+        const email = credentials.email as string
+        const password = credentials.password as string
       
-        const user = await User.findOne({
-          email: credentials.email as string,
+        const user = await prisma.user.findUnique({
+          where: { email },
         })
       
         if (!user) throw new Error("User not found")
@@ -37,88 +45,33 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           throw new Error("Please sign in with Google")
         }
       
-        const isMatch = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        )
+        const isMatch = await bcrypt.compare(password, user.password)
       
         if (!isMatch) throw new Error("Invalid password")
       
         return {
-          id: user._id.toString(),
+          id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role || "user",
         }
-      }
-    }),
-
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      },
     }),
   ],
 
   callbacks: {
-    
-    async signIn({ user, account }) {
-      try {
-        await connectDB()
-    
-        if (account?.provider === "google") {
-          if (!user.email) {
-            console.log("Google login failed: no email returned")
-            return false
-          }
-    
-          await User.findOneAndUpdate(
-            { email: user.email },
-            {
-              $setOnInsert: {
-                name: user.name ?? "",
-                email: user.email,
-                image: user.image ?? "",
-                provider: "google",
-                role: "user",
-              },
-            },
-            {
-              upsert: true,
-              new: true,
-            }
-          )
-        }
-    
-        return true
-      } catch (error) {
-        console.log("Google signIn callback error:", error)
-        return false
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id
+        token.role = (user as any).role
       }
-    },
-
-    async jwt({ token }) {
-      await connectDB()
-
-      if (token.email) {
-        const dbUser = await User.findOne({ email: token.email }).select(
-          "_id role"
-        )
-
-        if (dbUser) {
-          token.id = dbUser._id.toString()
-          token.role = dbUser.role || "user"
-        }
-      }
-
       return token
     },
-
+  
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
       }
-
       return session
     },
   },

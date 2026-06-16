@@ -1,22 +1,31 @@
 "use server"
 
 import bcrypt from "bcryptjs"
+import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
-import { connectDB } from "@/lib/db"
-import User from "@/lib/models/User"
 
 export async function registerUser(formData: FormData) {
-  await connectDB()
+  const name = formData.get("name")
+  const email = formData.get("email")
+  const password = formData.get("password")
 
-  const name = formData.get("name") as string
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
-
-  if (!name || !email || !password) {
-    throw new Error("All fields required")
+  if (
+    typeof name !== "string" ||
+    typeof email !== "string" ||
+    typeof password !== "string"
+  ) {
+    throw new Error("Invalid form data")
   }
 
-  const existingUser = await User.findOne({ email })
+  const normalizedEmail = email.toLowerCase().trim()
+
+  if (password.length < 6) {
+    throw new Error("Password must be at least 6 characters")
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  })
 
   if (existingUser) {
     throw new Error("User already exists")
@@ -24,11 +33,12 @@ export async function registerUser(formData: FormData) {
 
   const hashedPassword = await bcrypt.hash(password, 10)
 
-  await User.create({
-    name,
-    email,
-    password: hashedPassword,
-    role: "user",
+  await prisma.user.create({
+    data: {
+      name,
+      email: normalizedEmail,
+      password: hashedPassword,
+    },
   })
 
   redirect("/login")

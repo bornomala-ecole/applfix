@@ -8,7 +8,7 @@ export default async function LoginPage() {
   if (session) {
     const role = session.user.role
 
-    if (role === "admin") {
+    if (role === "admin" || role === "super_admin") {
       redirect("/admin/dashboard")
     }
 
