@@ -13,6 +13,7 @@ export default function Header() {
   const [showUserItems, setShowUserItems] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false);
   
 
 
@@ -30,6 +31,7 @@ export default function Header() {
 
 
   const closeUserMenu = () => setShowUserItems(false)
+  
   useEffect(() => {
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -45,18 +47,40 @@ export default function Header() {
     }
   }, [])
 
+
+  
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+  
+    window.addEventListener("scroll", handleScroll, { passive: true });
+  
+    handleScroll();
+  
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+
   return (
     <>
-      <section className="header_section">
-        <div className="top_bar bg-primaryRed text-white py-1 text-center">
-          <div className="container">
-            <p>Special announcement/discount will be here...</p>
+      <section className={`header_section sticky top-0 z-50 transition-all duration-300 ${
+    isScrolled ? "shadow-md" : "shadow-none" }`}>
+        {!isScrolled && (
+          <div className="top_bar bg-primaryRed text-white py-1 text-center">
+            <div className="container">
+              <p>Special announcement/discount will be here...</p>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="header_middile py-2 lg:py-2">
+        <div className={`header_middile transition-all duration-300 ${ isScrolled ? "bg-[#ddd] py-1" : "py-2" }`}>
           <div className="container">
-            <header className="flex justify-between gap-6 items-center">
+            <header className={`flex justify-between gap-6 items-center transition-all duration-300 
+              ${ isScrolled ? "py-1" : "py-4" }`}>
 
               <div className="nav_left lg:hidden flex gap-3 items-center">
                 <button type="button" onClick={toggleMobileMenu}>
@@ -65,12 +89,12 @@ export default function Header() {
               </div>
 
               <Link href="/">
-                <Image src="/images/logo.png" className="min-h-[25] min-w-[130]" width={130} height={20} alt="Site logo" />
+                <Image src="/images/logo.png" className={`min-h-[25] min-w-[130] ${isScrolled ? 'scale-[.75]' : ''}`} width={130} height={20} alt="Site logo" />
               </Link>              
 
               <div className="search hidden lg:block">
                 <form action="">
-                  <input className="rounded px-4 py-2 border" type="text" placeholder="Search ..." />
+                  <input className={`rounded px-4 ${isScrolled ? 'py-1' : 'py-2'} border`} type="text" placeholder="Search ..." />
                 </form>
               </div>
 
@@ -83,7 +107,7 @@ export default function Header() {
                   <div className="group user-group relative z-20" ref={userRef}>
                     <CircleUser onClick={toggleUserItems} className="cursor-pointer hover:text-red-600 w-6 h-6" />
                     {showUserItems && (
-                      <div className="absolute top-[90%] pt-3 right-0 width-[200px]">
+                      <div className="absolute top-[90%] pt-3 right-0 w-[200px]">
                         {session ? (
                           <div  className=" bg-gray-600 text-white px-4 py-2 rounded">
                               <Link  onClick={closeUserMenu} className="border-b pb-2 mb-2 hover:text-primaryRed flex gap-2 items-center" href="/dashboard">  <LayoutDashboard className="cursor-pointer  w-6 h-6 " />Dashboard</Link>
@@ -111,15 +135,15 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="header_bottom hidden lg:block bg-primaryRed py-2">
+        <div className={`header_bottom hidden lg:block bg-primaryRed ${isScrolled ? 'py-1 text-md': 'py-2 text-lg' }`}>
           <div className="container">
             <ul className="flex gap-2 items-center  ">
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/" >Home</Link></li>
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/shop" >Shop</Link></li>
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/about" >About</Link></li>
-              <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href="/contact" >Contact</Link></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer  font-semibold font-poppins"><Link href="/" >Home</Link></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer font-semibold font-poppins"><Link href="/shop" >Shop</Link></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer font-semibold font-poppins"><Link href="/about" >About</Link></li>
+              <li className="text-white hover:text-gray-200 cursor-pointer font-semibold font-poppins"><Link href="/contact" >Contact</Link></li>
               {session ? (
-                <li className="text-white hover:text-gray-200 cursor-pointer text-lg font-semibold font-poppins"><Link href={session.user.role === 'user' ? '/dashboard' : '/admin/dashboard' }>Dashboard</Link></li>
+                <li className="text-white hover:text-gray-200 cursor-pointer font-semibold font-poppins"><Link href={session.user.role === 'user' ? '/dashboard' : '/admin/dashboard' }>Dashboard</Link></li>
               ) : ('')}
             </ul>
           </div>

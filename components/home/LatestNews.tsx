@@ -49,7 +49,7 @@ export default function LatestNews() {
     <section className="py-12 lg:py-16">
       <div className="container">
         {/* Section Header */}
-        <div className="mb-8 flex items-end justify-between">
+        <div className="mb-8 flex items-center justify-between">
           <h2 className="text-2xl font-semibold">Latest News & Reviews</h2>
           <Link
             href="/blog"

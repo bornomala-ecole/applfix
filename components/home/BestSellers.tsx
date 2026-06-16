@@ -105,7 +105,7 @@ export default function BestSellers() {
     <section className="bg-gray-50 py-12 lg:py-16">
       <div className="container">
         {/* Section Header */}
-        <div className="mb-8 flex items-end justify-between">
+        <div className="mb-8 flex items-center justify-between">
           <h2 className="text-2xl font-semibold">Our Best Sellers</h2>
           <Link
             href="/shop?sort=bestsellers"

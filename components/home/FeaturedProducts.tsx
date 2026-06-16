@@ -96,7 +96,7 @@ export default function FeaturedProducts() {
     <section className="py-12">
       <div className="container">
         {/* Section Header */}
-        <div className="mb-8 flex items-end justify-between">
+        <div className="mb-8 flex items-center justify-between">
           <h2 className="text-2xl font-semibold">Featured Products</h2>
           <Link
             href="/shop"

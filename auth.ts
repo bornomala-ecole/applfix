@@ -4,12 +4,9 @@ import GoogleProvider from "next-auth/providers/google"
 
 import bcrypt from "bcryptjs"
 import { connectDB } from "@/lib/db"
-import User from "./lib/models/User"
- 
+import User from "@/lib/models/User"
 
- 
 export const { auth, handlers, signIn, signOut } = NextAuth({
-
   session: {
     strategy: "jwt",
   },
@@ -24,30 +21,36 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       },
 
       async authorize(credentials) {
-        if (!credentials) throw new Error("No credentials")
-
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email and password are required")
+        }
+      
         await connectDB()
-
+      
         const user = await User.findOne({
           email: credentials.email as string,
         })
-
+      
         if (!user) throw new Error("User not found")
-
+      
+        if (!user.password) {
+          throw new Error("Please sign in with Google")
+        }
+      
         const isMatch = await bcrypt.compare(
           credentials.password as string,
-          user.password || ""
+          user.password
         )
-
+      
         if (!isMatch) throw new Error("Invalid password")
-
+      
         return {
           id: user._id.toString(),
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: user.role || "user",
         }
-      },
+      }
     }),
 
     GoogleProvider({
@@ -57,57 +60,58 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
+    
     async signIn({ user, account }) {
-      await connectDB()
-
-      if (account?.provider === "google") {
-        
-        if (!user.email) return false
-
-        const existingUser = await User.findOne({
-          email: user.email,
-        })
-
-        if (!existingUser) {
-          await User.create({
-            name: user.name ?? "",
-            email: user.email,
-            image: user.image ?? "",
-            provider: "google",
-          })
+      try {
+        await connectDB()
+    
+        if (account?.provider === "google") {
+          if (!user.email) {
+            console.log("Google login failed: no email returned")
+            return false
+          }
+    
+          await User.findOneAndUpdate(
+            { email: user.email },
+            {
+              $setOnInsert: {
+                name: user.name ?? "",
+                email: user.email,
+                image: user.image ?? "",
+                provider: "google",
+                role: "user",
+              },
+            },
+            {
+              upsert: true,
+              new: true,
+            }
+          )
         }
+    
+        return true
+      } catch (error) {
+        console.log("Google signIn callback error:", error)
+        return false
       }
-
-      return true
     },
 
-    // async jwt({ token, user }) {
-    //   if (user) {
-    //     token.id = user.id
-    //     token.role = user.role
-    //   }
-
-    //   return token
-    // },
-    
-    async jwt({ token, user }) {
+    async jwt({ token }) {
       await connectDB()
-  
-      // On first login, or whenever token has email, sync from DB
+
       if (token.email) {
-        const dbUser = await User.findOne({ email: token.email }).select("_id role")
-  
+        const dbUser = await User.findOne({ email: token.email }).select(
+          "_id role"
+        )
+
         if (dbUser) {
           token.id = dbUser._id.toString()
-          token.role = dbUser.role
+          token.role = dbUser.role || "user"
         }
       }
-  
+
       return token
     },
-
-
-
 
     async session({ session, token }) {
       if (session.user) {
@@ -122,7 +126,4 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
-
-
-
 })

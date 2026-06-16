@@ -13,31 +13,31 @@ const brands: Brand[] = [
     id: 1,
     name: "Apple",
     image: "/images/brands/apple.png",
-    link: "/shop?brand=apple",
+    link: "/shop?brand=Apple",
   },
   {
     id: 2,
     name: "Samsung",
     image: "/images/brands/samsung.png",
-    link: "/shop?brand=samsung",
+    link: "/shop?brand=Samsung",
   },
   {
     id: 3,
     name: "Xiaomi",
     image: "/images/brands/xiaomi.png",
-    link: "/shop?brand=xiaomi",
+    link: "/shop?brand=Xiaomi",
   },
   {
     id: 4,
     name: "OnePlus",
     image: "/images/brands/oneplus.png",
-    link: "/shop?brand=oneplus",
+    link: "/shop?brand=OnePlus",
   },
   {
     id: 5,
     name: "Google",
     image: "/images/brands/google.png",
-    link: "/shop?brand=google",
+    link: "/shop?brand=Google",
   },
 ]
 
