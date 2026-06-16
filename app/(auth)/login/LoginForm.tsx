@@ -5,10 +5,13 @@ import Link from "next/link"
 import Image from "next/image"
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -16,13 +19,40 @@ export default function LoginForm() {
 
     const formData = new FormData(e.currentTarget)
 
-    await signIn("credentials", {
+    const res = await signIn("credentials", {
       email: formData.get("email"),
       password: formData.get("password"),
-      callbackUrl: "/",
+      redirect: false,
     })
 
     setLoading(false)
+
+    if (!res?.ok) {
+      alert("Invalid credentials")
+      return
+    }
+
+    // 🔥 IMPORTANT FIX: DO NOT USE useSession HERE
+    // Instead rely on server redirect route OR manual fetch
+
+    const sessionRes = await fetch("/api/auth/session")
+    const session = await sessionRes.json()
+
+    const role = session?.user?.role
+
+    console.log("role:", role)
+
+    if (role === "admin" || role === "super_admin") {
+      router.push("/admin/dashboard")
+    } else {
+      router.push("/dashboard")
+    }
+  }
+
+  const handleGoogleLogin = () => {
+    signIn("google", {
+      callbackUrl: "/api/auth/after-login",
+    })
   }
 
   return (
@@ -62,7 +92,7 @@ export default function LoginForm() {
             required
           />
 
-          {/* PASSWORD FIELD WITH EYE ICON */}
+          {/* PASSWORD */}
           <div className="relative">
             <input
               name="password"
@@ -74,21 +104,17 @@ export default function LoginForm() {
 
             <button
               type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              onClick={() => setShowPassword((p) => !p)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
             >
-              {showPassword ? (
-                <EyeOff size={18} />
-              ) : (
-                <Eye size={18} />
-              )}
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-primaryRed text-white rounded-lg py-3 font-medium hover:bg-red-700 transition disabled:opacity-50 cursor-pointer"
+            className="bg-primaryRed text-white rounded-lg py-3 font-medium hover:bg-red-700 transition disabled:opacity-50"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
@@ -101,10 +127,10 @@ export default function LoginForm() {
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* Google Login */}
+        {/* GOOGLE */}
         <button
-          onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="w-full border rounded-lg py-3 flex items-center justify-center gap-2 hover:bg-gray-50 transition cursor-pointer"
+          onClick={handleGoogleLogin}
+          className="w-full border rounded-lg py-3 flex items-center justify-center gap-2 hover:bg-gray-50 transition"
         >
           <svg width="18" height="18" viewBox="0 0 48 48">
             <path
@@ -115,7 +141,7 @@ export default function LoginForm() {
           Continue with Google
         </button>
 
-        {/* Register Link */}
+        {/* Register */}
         <p className="text-center text-sm text-gray-500 mt-6">
           Don’t have an account?{" "}
           <Link href="/register" className="text-primaryRed font-medium hover:underline">

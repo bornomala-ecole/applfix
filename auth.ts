@@ -59,11 +59,30 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+
+      // Step 1: initial login
       if (user) {
         token.id = user.id
-        token.role = (user as any).role
+        token.email = user.email
       }
+  
+      // Step 2: ALWAYS fetch role from DB (IMPORTANT FIX)
+      if (token.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: {
+            id: true,
+            role: true,
+          },
+        })
+  
+        if (dbUser) {
+          token.id = dbUser.id
+          token.role = dbUser.role
+        }
+      }
+  
       return token
     },
   
@@ -74,6 +93,8 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       }
       return session
     },
+
+
   },
 
   pages: {
