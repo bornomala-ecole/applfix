@@ -6,7 +6,7 @@ const AdminMenu = () => {
     <>
       <ul className='flex flex-col gap-2'>
         <li><Link href="/admin/dashboard">Dashboard</Link></li>
-        <li><Link href="/admin/dashboard/products">Products</Link></li>
+        <li><Link href="/admin/products">Products</Link></li>
       </ul>
     </>
   )
