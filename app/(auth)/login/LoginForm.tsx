@@ -32,15 +32,12 @@ export default function LoginForm() {
       return
     }
 
-    // 🔥 IMPORTANT FIX: DO NOT USE useSession HERE
-    // Instead rely on server redirect route OR manual fetch
-
     const sessionRes = await fetch("/api/auth/session")
     const session = await sessionRes.json()
 
     const role = session?.user?.role
 
-    console.log("role:", role)
+    // console.log("role:", role)
 
     if (role === "admin" || role === "super_admin") {
       router.push("/admin/dashboard")

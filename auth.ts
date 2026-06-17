@@ -53,6 +53,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           id: user.id,
           name: user.name,
           email: user.email,
+          role:user.role,
         }
       },
     }),
@@ -65,23 +66,24 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id
         token.email = user.email
+        token.role = (user as any).role
       }
   
       // Step 2: ALWAYS fetch role from DB (IMPORTANT FIX)
-      if (token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email },
-          select: {
-            id: true,
-            role: true,
-          },
-        })
+      // if (token.email) {
+      //   const dbUser = await prisma.user.findUnique({
+      //     where: { email: token.email },
+      //     select: {
+      //       id: true,
+      //       role: true,
+      //     },
+      //   })
   
-        if (dbUser) {
-          token.id = dbUser.id
-          token.role = dbUser.role
-        }
-      }
+      //   if (dbUser) {
+      //     token.id = dbUser.id
+      //     token.role = dbUser.role
+      //   }
+      // }
   
       return token
     },
