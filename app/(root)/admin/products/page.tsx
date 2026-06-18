@@ -20,6 +20,7 @@ export default async function ProductsPage({ searchParams }: Props) {
         brand: true,
         category: true, // ✅ ADD THIS
         variants: true,
+        images: true,
       },
       orderBy: { createdAt: "desc" },
       skip,

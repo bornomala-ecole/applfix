@@ -65,21 +65,21 @@ model VerificationToken {
 //
 
 model Brand {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  logo      String?
+  id   String  @id @default(cuid())
+  name String  @unique
+  logo String?
 
-  products  Product[]
+  products Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
+  id   String @id @default(cuid())
+  name String @unique
 
-  products  Product[]
+  products Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,32 +91,31 @@ model Category {
 //
 
 model Product {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  name        String
-  slug        String   @unique
+  name String
+  slug String @unique
+
   description String?
-  price Float?
-  stock Int? @default(0)
 
-  brandId     String?
-  categoryId  String?
+  brandId    String?
+  categoryId String?
 
-  brand       Brand?    @relation(fields: [brandId], references: [id])
-  category    Category? @relation(fields: [categoryId], references: [id])
+  isActive Boolean @default(true)
 
-  images      ProductImage[]
-  variants    ProductVariant[]
-  orderItems  OrderItem[]
+  brand    Brand?    @relation(fields: [brandId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id])
 
-  isActive    Boolean  @default(true)
+  images   ProductImage[]
+  variants ProductVariant[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  orderItems OrderItem[]
 
-  @@index([slug])
   @@index([brandId])
   @@index([categoryId])
+  @@index([isActive])
 }
 
 //
@@ -124,81 +123,73 @@ model Product {
 // Example:
 // iPhone 15 → 128GB / Black / $999
 //
-
 model ProductVariant {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  sku         String   @unique
+  sku String @unique
 
-  ram         String?
-  storage     String
-  color       String?
+  title String
+  color String?
 
-  price       Float
-  stock       Int      @default(0)
+  price Float
+  stock Int   @default(0)
 
-  orderItems  OrderItem[]
+  orderItems OrderItem[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([productId])
-  @@index([sku])
-  @@index([productId, storage, color])
+  @@unique([productId, title, color])
 }
 
 //
 // 🖼️ PRODUCT IMAGES
 //
 
-/*
-model ProductImage {
-  id          String @id @default(cuid())
-  url         String
-  publicId    String?
-  alt         String?
-
-  productId   String
-  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime @default(now())
-}
-*/
+/**
+ * model ProductImage {
+ * id          String @id @default(cuid())
+ * url         String
+ * publicId    String?
+ * alt         String?
+ * productId   String
+ * product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+ * createdAt   DateTime @default(now())
+ * }
+ */
 
 model ProductImage {
-  id          String @id @default(cuid())
-  url         String
-  publicId    String?
-  alt         String?
+  id       String  @id @default(cuid())
+  url      String
+  publicId String?
+  alt      String?
 
-  type        String @default("gallery")  // "main" | "gallery"
-  
+  type String @default("gallery") // "main" | "gallery"
 
-  productId   String
-  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
-
-
 
 //
 // 🛒 ORDER SYSTEM
 //
 
 model Order {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  total     Float
-  status    String   @default("pending")
+  total  Float
+  status String @default("pending")
 
-  items     OrderItem[]
+  items OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -212,23 +203,23 @@ model Order {
 //
 
 model OrderItem {
-  id          String @id @default(cuid())
+  id String @id @default(cuid())
 
-  orderId     String
-  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  productId   String
-  product     Product @relation(fields: [productId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
 
-  variantId   String
-  variant     ProductVariant @relation(fields: [variantId], references: [id])
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
 
-  name        String
-  price       Float
-  quantity    Int
+  name     String
+  price    Float
+  quantity Int
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orderId])
   @@index([productId])

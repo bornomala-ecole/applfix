@@ -26,7 +26,10 @@ export default async function ProductDetailsPage({ params }: Props) {
     )
   }
 
-  const isVariable = product.variants && product.variants.length > 0
+  const variants = product.variants || []
+
+  const isVariable = variants.length > 0
+
   const mainImage = product.images.find((img) => img.type === "main")
   const galleryImages = product.images.filter(
     (img) => img.type === "gallery"
@@ -85,12 +88,6 @@ export default async function ProductDetailsPage({ params }: Props) {
           {isVariable ? "Variable Product" : "Simple Product"}
         </p>
 
-        {!isVariable && (
-          <p>
-            <strong>Price:</strong> ${product.price || 0}
-          </p>
-        )}
-
       </div>
 
       {/* ================= IMAGES ================= */}
@@ -110,6 +107,7 @@ export default async function ProductDetailsPage({ params }: Props) {
             <img
               src={mainImage.url}
               className="w-40 h-40 object-cover rounded border"
+              alt="main"
             />
           </div>
         )}
@@ -127,6 +125,7 @@ export default async function ProductDetailsPage({ params }: Props) {
                   key={img.id}
                   src={img.url}
                   className="w-24 h-24 object-cover rounded border"
+                  alt="gallery"
                 />
               ))}
             </div>
@@ -145,7 +144,7 @@ export default async function ProductDetailsPage({ params }: Props) {
 
           <div className="grid gap-3">
 
-            {product.variants.map((v) => (
+            {variants.map((v) => (
               <div
                 key={v.id}
                 className="border rounded p-3 flex justify-between bg-white"
@@ -153,7 +152,7 @@ export default async function ProductDetailsPage({ params }: Props) {
 
                 <div>
                   <p className="font-semibold">
-                    Storage: {v.storage}
+                    {v.title}
                   </p>
 
                   {v.color && (
@@ -186,12 +185,8 @@ export default async function ProductDetailsPage({ params }: Props) {
             Product Details
           </h2>
 
-          <p>
-            <strong>Price:</strong> ${product.price || 0}
-          </p>
-
-          <p>
-            <strong>Stock:</strong> {product.stock || 0}
+          <p className="text-gray-500">
+            This product has no variants.
           </p>
 
         </div>

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 
 export async function generateUniqueSlug(
   name: string,
-  productId?: string
+  excludeProductId?: string
 ) {
   const baseSlug = slugify(name, {
     lower: true,
@@ -20,7 +20,10 @@ export async function generateUniqueSlug(
 
     if (!existing) break
 
-    if (productId && existing.id === productId) {
+    if (
+      excludeProductId &&
+      existing.id === excludeProductId
+    ) {
       break
     }
 

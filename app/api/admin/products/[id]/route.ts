@@ -20,7 +20,7 @@ export async function DELETE(
 // ======================
 // UPDATE PRODUCT
 // ======================
-
+/*
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -97,6 +97,113 @@ export async function PUT(
           sku: `${slug}-${v.storage || "default"}`,
         })),
       })
+    }
+
+    return Response.json(product)
+  } catch (error) {
+    console.error("PRODUCT UPDATE ERROR:", error)
+    return new Response("Error updating product", { status: 500 })
+  }
+}
+  */
+
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const body = await req.json()
+    const { id } = await params
+
+    const brandId = body.brandId?.trim() ? body.brandId : null
+    const categoryId = body.categoryId?.trim() ? body.categoryId : null
+
+    const slug = await generateUniqueSlug(body.slug, id)
+
+    // =========================
+    // 1. UPDATE PRODUCT (NO PRICE/STOCK HERE)
+    // =========================
+    const product = await prisma.product.update({
+      where: { id },
+      data: {
+        name: body.name,
+        slug,
+        description: body.description,
+        brandId,
+        categoryId,
+        isActive: body.isActive,
+      },
+    })
+
+    // =========================
+    // 2. IMAGES RESET (SAFE)
+    // =========================
+    await prisma.productImage.deleteMany({
+      where: { productId: id },
+    })
+
+    if (body.images?.length) {
+      await prisma.productImage.createMany({
+        data: body.images.map((img: any) => ({
+          url: img.url,
+          publicId: img.publicId || null,
+          type: img.type || "gallery",
+          productId: id,
+        })),
+      })
+    }
+
+    // =========================
+    // 3. VARIANTS (UPSERT SYNC)
+    // =========================
+
+    const existingVariants = await prisma.productVariant.findMany({
+      where: { productId: id },
+    })
+
+    const incomingVariants = body.variants || []
+
+    const incomingIds = incomingVariants
+      .filter((v: any) => v.id)
+      .map((v: any) => v.id)
+
+    // delete removed
+    await prisma.productVariant.deleteMany({
+      where: {
+        productId: id,
+        id: { notIn: incomingIds.length ? incomingIds : ["__none__"] },
+      },
+    })
+
+    // upsert loop
+    for (const v of incomingVariants) {
+      if (v.id) {
+        await prisma.productVariant.update({
+          where: { id: v.id },
+          data: {
+            title: v.title || "Default",
+            color: v.color || null,
+            price: Number(v.price) || 0,
+            stock: Number(v.stock) || 0,
+            sku: `${slug}-${(v.title || "default")
+              .toLowerCase()
+              .replace(/\s+/g, "-")}`,
+          },
+        })
+      } else {
+        await prisma.productVariant.create({
+          data: {
+            productId: id,
+            title: v.title || "Default",
+            color: v.color || null,
+            price: Number(v.price) || 0,
+            stock: Number(v.stock) || 0,
+            sku: `${slug}-${(v.title || "default")
+              .toLowerCase()
+              .replace(/\s+/g, "-")}`,
+          },
+        })
+      }
     }
 
     return Response.json(product)

@@ -7,7 +7,9 @@ import { uploadImage } from "@/lib/cloudinary/uploadImage"
 import { toast } from "react-toastify"
 
 type Variant = {
-  storage: string
+  id?: string
+  title: string
+  color: string
   price: number
   stock: number
 }
@@ -26,29 +28,42 @@ export default function EditProductClient({
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
+  console.log("PRODUCT IMAGES", product.images)
+
   // ================= BASIC INFO =================
   const [name, setName] = useState(product.name)
   const [slug, setSlug] = useState(product.slug)
   const [description, setDescription] = useState(product.description || "")
 
-  const [price, setPrice] = useState(product.price || 0)
-  const [stock, setStock] = useState(product.stock || 0)
-
-  const [brandId, setBrandId] = useState(product.brandId || "")
-  const [categoryId, setCategoryId] = useState(product.categoryId || "")
+  const [brandId, setBrandId] = useState(product.brandId ?? "")
+  const [categoryId, setCategoryId] = useState(product.categoryId ?? "")
   const [isActive, setIsActive] = useState(product.isActive ?? true)
 
-  // ================= TYPE =================
-  const [productType, setProductType] = useState<"simple" | "variable">(
-    product.variants?.length > 0 ? "variable" : "simple"
-  )
-
   const [variants, setVariants] = useState<Variant[]>(
-    product.variants || []
+    product.variants?.length
+      ? product.variants.map((v: any) => ({
+          id: v.id,
+          title: v.title ?? "",
+          color: v.color ?? "",
+          price: v.price ?? 0,
+          stock: v.stock ?? 0,
+        }))
+      : [
+          {
+            title: "Default",
+            color: "",
+            price: 0,
+            stock: 0,
+          },
+        ]
   )
 
   const [images, setImages] = useState<ImageType[]>(
-    product.images || []
+    product.images?.map((img: any) => ({
+      url: img.url ?? "",
+      publicId: img.publicId ?? undefined,
+      type: img.type ?? "gallery",
+    })) || []
   )
 
   // ================= SLUG =================
@@ -113,7 +128,12 @@ export default function EditProductClient({
   function addVariant() {
     setVariants((prev) => [
       ...prev,
-      { storage: "", price: 0, stock: 0 },
+      {
+        title: "",
+        color: "",
+        price: 0,
+        stock: 0,
+      },
     ])
   }
 
@@ -138,13 +158,11 @@ export default function EditProductClient({
       name,
       slug,
       description,
-      price,
-      stock,
       brandId,
       categoryId,
       isActive,
       images,
-      variants: productType === "variable" ? variants : [],
+      variants,
     }
 
     const res = await fetch(`/api/admin/products/${product.id}`, {
@@ -195,18 +213,6 @@ export default function EditProductClient({
           </label>
         </div>
 
-        {/* ================= PRICING ================= */}
-        {productType === "simple" && (
-          <div className="border p-4 rounded">
-            <h2 className="font-bold mb-4">Pricing</h2>
-
-            <label>Price</label>
-            <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="border p-2 w-full mb-3" />
-
-            <label>Stock</label>
-            <input type="number" value={stock} onChange={(e) => setStock(Number(e.target.value))} className="border p-2 w-full" />
-          </div>
-        )}
 
         {/* ================= BRAND / CATEGORY ================= */}
         <div className="border p-4 rounded">
@@ -264,27 +270,65 @@ export default function EditProductClient({
         <div className="border p-4 rounded">
           <h2 className="font-bold mb-4">Variants</h2>
 
-          <select value={productType} onChange={(e) => setProductType(e.target.value as any)} className="border p-2 w-full mb-3">
-            <option value="simple">Simple</option>
-            <option value="variable">Variable</option>
-          </select>
+          {variants.map((v, i) => (
+            <div key={i} className="grid grid-cols-5 gap-2 mb-2">
 
-          {productType === "variable" && (
-            <>
-              {variants.map((v, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                  <input value={v.storage} onChange={(e) => updateVariant(i, "storage", e.target.value)} className="border p-2" />
-                  <input type="number" value={v.price} onChange={(e) => updateVariant(i, "price", Number(e.target.value))} className="border p-2" />
-                  <input type="number" value={v.stock} onChange={(e) => updateVariant(i, "stock", Number(e.target.value))} className="border p-2" />
-                  <button type="button" onClick={() => removeVariant(i)} className="text-red-500">X</button>
-                </div>
-              ))}
+              <input
+                placeholder="Title"
+                value={v.title}
+                onChange={(e) =>
+                  updateVariant(i, "title", e.target.value)
+                }
+                className="border p-2"
+              />
 
-              <button type="button" onClick={addVariant} className="text-blue-600">
-                + Add Variant
+              <input
+                placeholder="Color"
+                value={v.color}
+                onChange={(e) =>
+                  updateVariant(i, "color", e.target.value)
+                }
+                className="border p-2"
+              />
+
+              <input
+                type="number"
+                placeholder="Price"
+                value={v.price}
+                onChange={(e) =>
+                  updateVariant(i, "price", Number(e.target.value))
+                }
+                className="border p-2"
+              />
+
+              <input
+                type="number"
+                placeholder="Stock"
+                value={v.stock}
+                onChange={(e) =>
+                  updateVariant(i, "stock", Number(e.target.value))
+                }
+                className="border p-2"
+              />
+
+              <button
+                type="button"
+                onClick={() => removeVariant(i)}
+                className="text-red-500"
+              >
+                X
               </button>
-            </>
-          )}
+
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addVariant}
+            className="text-blue-600"
+          >
+            + Add Variant
+          </button>
         </div>
 
         {/* ================= SUBMIT ================= */}

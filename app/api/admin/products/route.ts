@@ -5,9 +5,27 @@ import { generateUniqueSlug } from "@/lib/utils/slugify"
 
 export async function POST(req: Request) {
 
-  
+  function generateSku(
+    slug: string,
+    title: string
+  ) {
+    return `${slug}-${title}`
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+  }
+
+
   try {
     const body = await req.json()
+    
+    if (!body.variants?.length) {
+      return new Response(
+        "At least one variant is required",
+        { status: 400 }
+      )
+    }
+
+
     const slug = body.slug ? await generateUniqueSlug(body.slug) : await generateUniqueSlug(body.name)
 
     const brandId =
@@ -49,21 +67,19 @@ export async function POST(req: Request) {
             type: img.type || "gallery",
           })),
         },
-        price:
-          body.variants?.length > 0
-            ? null
-            : Number(body.price) || 0,
 
-        variants: body.variants?.length
-        ? {
-            create: body.variants.map((v: any) => ({
-              storage: v.storage || null,
-              price: v.price || 0,
-              stock: v.stock || 0,
-              sku: `${body.slug}-${v.storage || "default"}`,
-            })),
-          }
-        : undefined,
+
+        variants: {
+          create: body.variants.map((v: any) => ({
+            title: v.title,
+            color: v.color || null,
+            price: Number(v.price) || 0,
+            stock: Number(v.stock) || 0,
+            sku: `${slug}-${v.title}`
+              .toLowerCase()
+              .replace(/\s+/g, "-"),
+          })),
+        },
       },
     })
     

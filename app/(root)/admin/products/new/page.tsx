@@ -7,7 +7,8 @@ import { toast } from "react-toastify"
 import { useRouter } from "next/navigation"
 
 type Variant = {
-  storage: string
+  title: string
+  color: string
   price: number
   stock: number
 }
@@ -28,8 +29,14 @@ export default function NewProductPage() {
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
 
-  const [variants, setVariants] = useState<Variant[]>([])
-  const [productType, setProductType] = useState<"simple" | "variable">("simple")
+  const [variants, setVariants] = useState<Variant[]>([
+    {
+      title: "Default",
+      color: "",
+      price: 0,
+      stock: 0,
+    },
+  ])
 
   const router = useRouter()
 
@@ -125,7 +132,12 @@ export default function NewProductPage() {
   function addVariant() {
     setVariants((prev) => [
       ...prev,
-      { storage: "", price: 0, stock: 0 },
+      {
+        title: "",
+        color: "",
+        price: 0,
+        stock: 0,
+      },
     ])
   }
 
@@ -153,8 +165,7 @@ export default function NewProductPage() {
       brandId: form.get("brandId")?.toString() || null,
       categoryId: form.get("categoryId")?.toString() || null,
       images,
-      price: Number(form.get("price")) || 0,
-      variants: variants.length > 0 ? variants : [],
+      variants,
     }
 
     const res = await fetch("/api/admin/products", {
@@ -170,7 +181,14 @@ export default function NewProductPage() {
 
       e.target.reset()
       setImages([])
-      setVariants([])
+      setVariants([
+        {
+          title: "Default",
+          color: "",
+          price: 0,
+          stock: 0,
+        },
+      ])
       setName("")
       setSlug("")
       router.push("/admin/products")
@@ -292,77 +310,64 @@ export default function NewProductPage() {
           </div>
         </div>
 
-        {/* PRODUCT TYPE */}
-        <div className="flex gap-4 items-center mt-2">
-          <label className="font-medium">Product Type:</label>
 
-          <select
-            value={productType}
-            onChange={(e) => setProductType(e.target.value as any)}
-            className="border p-2 rounded"
-          >
-            <option value="simple">Simple Product</option>
-            <option value="variable">Variable Product</option>
-          </select>
-        </div>
-
-        {/* PRICE */}
-        <input
-          name="price"
-          type="number"
-          placeholder="Price (for simple product)"
-          className="border p-2 rounded"
-        />
 
         {/* VARIANTS */}
-        {productType === "variable" && (
-          <div>
-            <h2 className="font-bold mt-4">Variants</h2>
+        <div>
+          <h2 className="font-bold mt-4">Variants</h2>
 
-            {variants.map((v, i) => (
-              <div key={i} className="flex gap-2 mt-2">
+          {variants.map((v, i) => (
+            <div key={i} className="grid grid-cols-4 gap-2 mt-2">
 
-                <input
-                  placeholder="Storage"
-                  value={v.storage}
-                  onChange={(e) =>
-                    updateVariant(i, "storage", e.target.value)
-                  }
-                  className="border p-2 rounded"
-                />
+              <input
+                placeholder="Title"
+                value={v.title}
+                onChange={(e) =>
+                  updateVariant(i, "title", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
 
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={v.price}
-                  onChange={(e) =>
-                    updateVariant(i, "price", Number(e.target.value))
-                  }
-                  className="border p-2 rounded"
-                />
+              <input
+                placeholder="Color"
+                value={v.color}
+                onChange={(e) =>
+                  updateVariant(i, "color", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
 
-                <input
-                  type="number"
-                  placeholder="Stock"
-                  value={v.stock}
-                  onChange={(e) =>
-                    updateVariant(i, "stock", Number(e.target.value))
-                  }
-                  className="border p-2 rounded"
-                />
+              <input
+                type="number"
+                placeholder="Price"
+                value={v.price}
+                onChange={(e) =>
+                  updateVariant(i, "price", Number(e.target.value))
+                }
+                className="border p-2 rounded"
+              />
 
-              </div>
-            ))}
+              <input
+                type="number"
+                placeholder="Stock"
+                value={v.stock}
+                onChange={(e) =>
+                  updateVariant(i, "stock", Number(e.target.value))
+                }
+                className="border p-2 rounded"
+              />
 
-            <button
-              type="button"
-              onClick={addVariant}
-              className="text-blue-600 mt-2"
-            >
-              + Add Variant
-            </button>
-          </div>
-        )}
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addVariant}
+            className="text-blue-600 mt-2"
+          >
+            + Add Variant
+          </button>
+        </div>
 
         {/* SUBMIT */}
         <button

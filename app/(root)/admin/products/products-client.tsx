@@ -18,11 +18,11 @@ export default function ProductsClient({
   const [search, setSearch] = useState("")
   const [brandFilter, setBrandFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
-
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
+
   // ======================
-  // FILTER LOGIC
+  // FILTER
   // ======================
   const filtered = products.filter((p: any) => {
     const matchSearch = p.name
@@ -54,9 +54,6 @@ export default function ProductsClient({
     setDeleteId(null)
   }
 
-  // ======================
-  // PAGINATION
-  // ======================
   const totalPages = Math.ceil(total / limit)
 
   function changePage(newPage: number) {
@@ -64,38 +61,40 @@ export default function ProductsClient({
   }
 
   return (
-    <div className="p-4">
+    <div className="p-6 bg-gray-50 min-h-screen">
 
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
+
         <div>
-          <h1 className="text-2xl font-bold">Products</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Products
+          </h1>
           <p className="text-sm text-gray-500">
-            Total: {total}
+            Total Products:{" "}
+            <span className="font-semibold">{total}</span>
           </p>
         </div>
 
         <Link
           href="/admin/products/new"
-          className="bg-black text-white px-4 py-2 rounded"
+          className="bg-black text-white px-5 py-2 rounded-lg hover:bg-gray-800"
         >
           + Add Product
         </Link>
       </div>
 
       {/* FILTERS */}
-      <div className="flex gap-3 mb-4">
+      <div className="bg-white p-4 rounded-lg border mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
 
-        {/* SEARCH */}
         <input
           type="text"
           placeholder="Search products..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border p-2 w-full rounded"
+          className="border p-2 rounded w-full"
         />
 
-        {/* BRAND FILTER */}
         <select
           value={brandFilter}
           onChange={(e) => setBrandFilter(e.target.value)}
@@ -109,7 +108,6 @@ export default function ProductsClient({
           ))}
         </select>
 
-        {/* CATEGORY FILTER */}
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
@@ -126,66 +124,154 @@ export default function ProductsClient({
       </div>
 
       {/* LIST */}
-      <div className="grid gap-4">
+      <div className="space-y-3">
 
-        {filtered.map((product: any) => (
-          <div
-            key={product.id}
-            className="p-4 border rounded bg-white flex justify-between items-center"
-          >
+        {filtered.map((product: any) => {
+          const variants = product.variants || []
+          const totalStock = variants.reduce(
+            (sum: number, v: any) => sum + (v.stock || 0),
+            0
+          )
 
-            <div>
-              <h2 className="font-semibold">
-                {product.name}
-              </h2>
-              <p className="text-sm text-gray-500">
-                {product.brand?.name}
-              </p>
+          const minPrice = variants.length
+            ? Math.min(...variants.map((v: any) => v.price))
+            : 0
+
+          const isVariable = variants.length > 0
+
+          const mainImage = product.images?.find(
+            (img: any) => img.type === "main"
+          )
+
+          console.log("Images:", product.images)
+
+          return (
+            <div
+              key={product.id}
+              className="bg-white border rounded-xl p-4 flex items-center justify-between hover:shadow-sm transition"
+            >
+
+              {/* LEFT */}
+              <div className="flex items-center gap-4">
+
+              {/* IMAGE PLACEHOLDER */}
+              {mainImage ? (
+                <img
+                  src={mainImage.url}
+                  alt={product.name}
+                  className="w-12 h-12 rounded-lg object-cover border"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-400">
+                  No Image
+                </div>
+              )}
+
+                <div>
+
+                  <h2 className="font-semibold text-gray-900">
+                    {product.name}
+                  </h2>
+
+                  <div className="flex gap-2 mt-1 flex-wrap text-xs">
+
+                    <span className="px-2 py-0.5 bg-gray-100 rounded">
+                      {product.brand?.name || "No Brand"}
+                    </span>
+
+                    <span className="px-2 py-0.5 bg-gray-100 rounded">
+                      {product.category?.name || "No Category"}
+                    </span>
+
+                    <span
+                      className={`px-2 py-0.5 rounded ${
+                        isVariable
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-green-100 text-green-600"
+                      }`}
+                    >
+                      {isVariable
+                        ? "Variable"
+                        : "Simple"}
+                    </span>
+
+                  </div>
+                </div>
+              </div>
+
+              {/* MIDDLE */}
+              <div className="text-sm text-gray-600 text-center">
+
+                {isVariable ? (
+                  <>
+                    <div className="font-semibold text-gray-900">
+                      ${minPrice}+
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {variants.length} variants
+                    </div>
+                  </>
+                ) : (
+                  <div className="font-semibold text-gray-900">
+                    Single Product
+                  </div>
+                )}
+
+              </div>
+
+              {/* RIGHT */}
+              <div className="text-right text-sm">
+
+                <div className="font-semibold">
+                  Stock: {totalStock}
+                </div>
+
+                <div className="text-xs text-gray-400">
+                  Updated recently
+                </div>
+
+              </div>
+
+              {/* ACTIONS */}
+              <div className="flex gap-2 ml-6">
+
+                <Link
+                  href={`/admin/products/${product.id}`}
+                  className="px-3 py-1 text-xs bg-gray-800 text-white rounded hover:bg-gray-700"
+                >
+                  View
+                </Link>
+
+                <Link
+                  href={`/admin/products/edit/${product.id}`}
+                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-500"
+                >
+                  Edit
+                </Link>
+
+                <button
+                  onClick={() => setDeleteId(product.id)}
+                  className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-500"
+                >
+                  Delete
+                </button>
+
+              </div>
+
             </div>
-
-            <div className="text-sm text-gray-600">
-              {product.variants.length} variants
-            </div>
-
-            {/* ACTIONS */}
-            <div className="flex gap-2">
-
-              <Link
-                href={`/admin/products/${product.id}`}
-                className="px-3 py-1 text-sm bg-gray-700 text-white rounded"
-              >
-                View
-              </Link>
-
-              <Link
-                href={`/admin/products/edit/${product.id}`}
-                className="px-3 py-1 text-sm bg-blue-500 text-white rounded"
-              >
-                Edit
-              </Link>
-
-              <button
-                onClick={() => setDeleteId(product.id)}
-                className="px-3 py-1 text-sm bg-red-500 text-white rounded"
-              >
-                Delete
-              </button>
-
-            </div>
-
-          </div>
-        ))}
+          )
+        })}
 
       </div>
 
       {/* PAGINATION */}
-      <div className="flex gap-2 mt-6 justify-center">
+      <div className="flex gap-2 mt-8 justify-center">
 
         {Array.from({ length: totalPages }, (_, i) => (
           <button
             key={i}
             onClick={() => changePage(i + 1)}
-            className={`px-3 py-1 border rounded ${
+            className={`px-3 py-1 rounded border text-sm ${
               page === i + 1
                 ? "bg-black text-white"
                 : "bg-white"
@@ -199,23 +285,23 @@ export default function ProductsClient({
 
       {/* DELETE MODAL */}
       {deleteId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
 
-          <div className="bg-white p-6 rounded w-[300px]">
+          <div className="bg-white p-6 rounded-xl w-[320px]">
 
             <h2 className="text-lg font-bold mb-2">
-              Confirm Delete
+              Delete Product?
             </h2>
 
             <p className="text-sm text-gray-500 mb-4">
-              Are you sure you want to delete this product?
+              This action cannot be undone.
             </p>
 
             <div className="flex justify-end gap-2">
 
               <button
                 onClick={() => setDeleteId(null)}
-                className="px-3 py-1 bg-gray-300 rounded"
+                className="px-3 py-1 bg-gray-200 rounded"
               >
                 Cancel
               </button>
