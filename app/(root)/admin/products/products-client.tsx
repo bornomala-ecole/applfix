@@ -2,43 +2,65 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "react-toastify"
 
-export default function ProductsClient({ products }: any) {
+export default function ProductsClient({
+  products,
+  brands,
+  categories,
+  page,
+  total,
+  limit,
+}: any) {
+  const router = useRouter()
+
   const [search, setSearch] = useState("")
-  const [list, setList] = useState(products)
+  const [brandFilter, setBrandFilter] = useState("all")
+  const [categoryFilter, setCategoryFilter] = useState("all")
 
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   // ======================
-  // SEARCH FILTER
+  // FILTER LOGIC
   // ======================
-  const filtered = list.filter((p: any) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = products.filter((p: any) => {
+    const matchSearch = p.name
+      .toLowerCase()
+      .includes(search.toLowerCase())
+
+    const matchBrand =
+      brandFilter === "all" || p.brand?.id === brandFilter
+
+    const matchCategory =
+      categoryFilter === "all" || p.category?.id === categoryFilter
+
+    return matchSearch && matchBrand && matchCategory
+  })
 
   // ======================
-  // DELETE PRODUCT
+  // DELETE
   // ======================
-  async function handleDelete() {
-    if (!deleteId) return
-
-    const res = await fetch(`/api/admin/products/${deleteId}`, {
+  async function handleDelete(id: string) {
+    const res = await fetch(`/api/admin/products/${id}`, {
       method: "DELETE",
     })
 
-    
-
-    if(res.ok){
-      setList((prev: any) =>
-        prev.filter((p: any) => p.id !== deleteId)
-      )
-      setDeleteId(null)
-
-      toast.success("Product deleted successfully!")
+    if (res.ok) {
+      toast.success("Product deleted")
+      router.refresh()
     }
 
-    
+    setDeleteId(null)
+  }
+
+  // ======================
+  // PAGINATION
+  // ======================
+  const totalPages = Math.ceil(total / limit)
+
+  function changePage(newPage: number) {
+    router.push(`/admin/products?page=${newPage}`)
   }
 
   return (
@@ -49,7 +71,7 @@ export default function ProductsClient({ products }: any) {
         <div>
           <h1 className="text-2xl font-bold">Products</h1>
           <p className="text-sm text-gray-500">
-            Total: {list.length}
+            Total: {total}
           </p>
         </div>
 
@@ -61,14 +83,47 @@ export default function ProductsClient({ products }: any) {
         </Link>
       </div>
 
-      {/* SEARCH */}
-      <input
-        type="text"
-        placeholder="Search products..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="border p-2 w-full mb-4 rounded"
-      />
+      {/* FILTERS */}
+      <div className="flex gap-3 mb-4">
+
+        {/* SEARCH */}
+        <input
+          type="text"
+          placeholder="Search products..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border p-2 w-full rounded"
+        />
+
+        {/* BRAND FILTER */}
+        <select
+          value={brandFilter}
+          onChange={(e) => setBrandFilter(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="all">All Brands</option>
+          {brands.map((b: any) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+
+        {/* CATEGORY FILTER */}
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="all">All Categories</option>
+          {categories.map((c: any) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+
+      </div>
 
       {/* LIST */}
       <div className="grid gap-4">
@@ -80,7 +135,9 @@ export default function ProductsClient({ products }: any) {
           >
 
             <div>
-              <h2 className="font-semibold">{product.name}</h2>
+              <h2 className="font-semibold">
+                {product.name}
+              </h2>
               <p className="text-sm text-gray-500">
                 {product.brand?.name}
               </p>
@@ -92,6 +149,7 @@ export default function ProductsClient({ products }: any) {
 
             {/* ACTIONS */}
             <div className="flex gap-2">
+
               <Link
                 href={`/admin/products/${product.id}`}
                 className="px-3 py-1 text-sm bg-gray-700 text-white rounded"
@@ -120,9 +178,26 @@ export default function ProductsClient({ products }: any) {
 
       </div>
 
-      {/* ======================
-          DELETE MODAL
-      ====================== */}
+      {/* PAGINATION */}
+      <div className="flex gap-2 mt-6 justify-center">
+
+        {Array.from({ length: totalPages }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => changePage(i + 1)}
+            className={`px-3 py-1 border rounded ${
+              page === i + 1
+                ? "bg-black text-white"
+                : "bg-white"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+
+      </div>
+
+      {/* DELETE MODAL */}
       {deleteId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
 
@@ -146,7 +221,7 @@ export default function ProductsClient({ products }: any) {
               </button>
 
               <button
-                onClick={handleDelete}
+                onClick={() => handleDelete(deleteId)}
                 className="px-3 py-1 bg-red-600 text-white rounded"
               >
                 Delete

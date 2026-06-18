@@ -12,23 +12,29 @@ type Variant = {
   stock: number
 }
 
+type ImageType = {
+  url: string
+  publicId?: string
+  type: "main" | "gallery"
+}
+
 export default function NewProductPage() {
   const [loading, setLoading] = useState(false)
-  const [images, setImages] = useState<any[]>([])
+
+  const [images, setImages] = useState<ImageType[]>([])
   const [brands, setBrands] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
 
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
 
+  const [variants, setVariants] = useState<Variant[]>([])
+  const [productType, setProductType] = useState<"simple" | "variable">("simple")
+
   const router = useRouter()
 
-  const [variants, setVariants] = useState<Variant[]>([
-    { storage: "128GB", price: 0, stock: 0 },
-  ])
-
   // ======================
-  // LOAD BRANDS/CATEGORIES
+  // LOAD DATA
   // ======================
   useEffect(() => {
     fetch("/api/admin/form-data")
@@ -40,21 +46,77 @@ export default function NewProductPage() {
   }, [])
 
   // ======================
-  // AUTO SLUG GENERATION
+  // SLUG
   // ======================
   useEffect(() => {
     setSlug(slugify(name, { lower: true, strict: true }))
   }, [name])
 
   // ======================
-  // IMAGE UPLOAD
+  // MAIN IMAGE UPLOAD
   // ======================
-  async function handleImageUpload(e: any) {
+  async function handleMainImageUpload(e: any) {
     const file = e.target.files?.[0]
     if (!file) return
 
     const uploaded = await uploadImage(file)
-    setImages((prev) => [...prev, uploaded])
+
+    setImages((prev) => {
+      const filtered = prev.filter((img) => img.type !== "main")
+
+      return [
+        ...filtered,
+        {
+          url: uploaded.url,
+          publicId: uploaded.publicId,
+          type: "main" as const,
+        },
+      ]
+    })
+  }
+
+  // ======================
+  // GALLERY UPLOAD
+  // ======================
+  async function handleGalleryUpload(e: any) {
+    const files = Array.from(e.target.files as FileList)
+
+    const uploadedImages = await Promise.all(
+      files.map(async (file: File) => {
+        const uploaded = await uploadImage(file)
+
+        return {
+          url: uploaded.url,
+          publicId: uploaded.publicId,
+          type: "gallery" as const,
+        }
+      })
+    )
+
+    setImages((prev) => [...prev, ...uploadedImages])
+  }
+
+  // ======================
+  // DELETE IMAGE (CLOUDINARY + STATE)
+  // ======================
+  async function handleDeleteImage(img: ImageType) {
+    try {
+      if (img.publicId) {
+        await fetch("/api/admin/delete-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ publicId: img.publicId }),
+        })
+      }
+
+      setImages((prev) =>
+        prev.filter((i) => i.publicId !== img.publicId)
+      )
+
+      toast.success("Image deleted")
+    } catch (err) {
+      toast.error("Failed to delete image")
+    }
   }
 
   // ======================
@@ -67,11 +129,7 @@ export default function NewProductPage() {
     ])
   }
 
-  function updateVariant(
-    index: number,
-    key: keyof Variant,
-    value: string | number
-  ) {
+  function updateVariant(index: number, key: keyof Variant, value: any) {
     setVariants((prev) => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [key]: value }
@@ -92,10 +150,11 @@ export default function NewProductPage() {
       name,
       slug,
       description: form.get("description"),
-      brandId: form.get("brandId"),
-      categoryId: form.get("categoryId"),
+      brandId: form.get("brandId")?.toString() || null,
+      categoryId: form.get("categoryId")?.toString() || null,
       images,
-      variants,
+      price: Number(form.get("price")) || 0,
+      variants: variants.length > 0 ? variants : [],
     }
 
     const res = await fetch("/api/admin/products", {
@@ -104,24 +163,23 @@ export default function NewProductPage() {
       body: JSON.stringify(payload),
     })
 
+    setLoading(false)
+
     if (res.ok) {
       toast.success("Product created successfully")
-  
-      // ✅ RESET EVERYTHING
+
       e.target.reset()
       setImages([])
-      setVariants([{ storage: "128GB", price: 0, stock: 0 }])
+      setVariants([])
       setName("")
       setSlug("")
       router.push("/admin/products")
     } else {
       toast.error("Error creating product")
     }
-
-    setLoading(false)
-    
-    
   }
+
+  const mainImage = images.find((img) => img.type === "main")
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -141,7 +199,7 @@ export default function NewProductPage() {
           required
         />
 
-        {/* SLUG PREVIEW */}
+        {/* SLUG */}
         <input
           value={slug}
           readOnly
@@ -155,7 +213,7 @@ export default function NewProductPage() {
           className="border p-2 rounded"
         />
 
-        {/* BRAND DROPDOWN */}
+        {/* BRAND */}
         <select name="brandId" className="border p-2 rounded">
           <option value="">Select Brand</option>
           {brands.map((b: any) => (
@@ -165,7 +223,7 @@ export default function NewProductPage() {
           ))}
         </select>
 
-        {/* CATEGORY DROPDOWN */}
+        {/* CATEGORY */}
         <select name="categoryId" className="border p-2 rounded">
           <option value="">Select Category</option>
           {categories.map((c: any) => (
@@ -175,27 +233,95 @@ export default function NewProductPage() {
           ))}
         </select>
 
-        {/* IMAGE UPLOAD */}
-        <input type="file" onChange={handleImageUpload} />
+        {/* ================= MAIN IMAGE ================= */}
+        <div className="border p-3 rounded">
+          <h3 className="font-semibold mb-2">Main Image</h3>
 
-        <div className="flex gap-2 flex-wrap">
-          {images.map((img, i) => (
-            <img
-              key={i}
-              src={img.url}
-              className="w-20 h-20 object-cover rounded"
-            />
-          ))}
+          <input type="file" onChange={handleMainImageUpload} />
+
+          {mainImage && (
+            <div className="relative w-24 h-24 mt-2">
+              <img
+                src={mainImage.url}
+                className="w-24 h-24 object-cover rounded"
+              />
+
+              <button
+                type="button"
+                onClick={() => handleDeleteImage(mainImage)}
+                className="absolute -top-2 -right-2 bg-red-600 text-white w-5 h-5 rounded-full text-xs"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* VARIANTS */}
-        <div>
-          <h2 className="font-bold mt-4">Variants</h2>
+        {/* ================= GALLERY ================= */}
+        <div className="border p-3 rounded mt-4">
+          <h3 className="font-semibold mb-2">Gallery Images</h3>
 
-          {variants.map((v, i) => (
-            <div key={i} className="flex gap-2 mt-2">
-              <div className="flex flex-col">
-                <label className="text-xs text-gray-500">Storage</label>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleGalleryUpload}
+          />
+
+          <div className="flex gap-2 flex-wrap mt-2">
+            {images
+              .filter((img) => img.type === "gallery")
+              .map((img, index) => (
+                <div key={index} className="relative w-20 h-20">
+
+                  <img
+                    src={img.url}
+                    className="w-20 h-20 object-cover rounded"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteImage(img)}
+                    className="absolute -top-2 -right-2 bg-red-600 text-white w-5 h-5 rounded-full text-xs"
+                  >
+                    ×
+                  </button>
+
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* PRODUCT TYPE */}
+        <div className="flex gap-4 items-center mt-2">
+          <label className="font-medium">Product Type:</label>
+
+          <select
+            value={productType}
+            onChange={(e) => setProductType(e.target.value as any)}
+            className="border p-2 rounded"
+          >
+            <option value="simple">Simple Product</option>
+            <option value="variable">Variable Product</option>
+          </select>
+        </div>
+
+        {/* PRICE */}
+        <input
+          name="price"
+          type="number"
+          placeholder="Price (for simple product)"
+          className="border p-2 rounded"
+        />
+
+        {/* VARIANTS */}
+        {productType === "variable" && (
+          <div>
+            <h2 className="font-bold mt-4">Variants</h2>
+
+            {variants.map((v, i) => (
+              <div key={i} className="flex gap-2 mt-2">
+
                 <input
                   placeholder="Storage"
                   value={v.storage}
@@ -204,10 +330,7 @@ export default function NewProductPage() {
                   }
                   className="border p-2 rounded"
                 />
-              </div>
 
-              <div className="flex flex-col">
-                <label className="text-xs text-gray-500">Price</label>
                 <input
                   type="number"
                   placeholder="Price"
@@ -217,10 +340,7 @@ export default function NewProductPage() {
                   }
                   className="border p-2 rounded"
                 />
-              </div>
-              
-              <div className="flex flex-col">
-                <label className="text-xs text-gray-500">Stock</label>
+
                 <input
                   type="number"
                   placeholder="Stock"
@@ -230,18 +350,19 @@ export default function NewProductPage() {
                   }
                   className="border p-2 rounded"
                 />
-              </div>
-            </div>
-          ))}
 
-          <button
-            type="button"
-            onClick={addVariant}
-            className="text-blue-600 mt-2"
-          >
-            + Add Variant
-          </button>
-        </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addVariant}
+              className="text-blue-600 mt-2"
+            >
+              + Add Variant
+            </button>
+          </div>
+        )}
 
         {/* SUBMIT */}
         <button

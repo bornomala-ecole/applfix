@@ -1,8 +1,11 @@
 import slugify from "slugify"
 import { prisma } from "@/lib/prisma"
 
-export async function generateUniqueSlug(name: string) {
-  let baseSlug = slugify(name, {
+export async function generateUniqueSlug(
+  name: string,
+  productId?: string
+) {
+  const baseSlug = slugify(name, {
     lower: true,
     strict: true,
   })
@@ -16,6 +19,10 @@ export async function generateUniqueSlug(name: string) {
     })
 
     if (!existing) break
+
+    if (productId && existing.id === productId) {
+      break
+    }
 
     slug = `${baseSlug}-${counter}`
     counter++

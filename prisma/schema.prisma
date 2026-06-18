@@ -96,12 +96,14 @@ model Product {
   name        String
   slug        String   @unique
   description String?
+  price Float?
+  stock Int? @default(0)
 
-  brandId     String
-  categoryId  String
+  brandId     String?
+  categoryId  String?
 
-  brand       Brand    @relation(fields: [brandId], references: [id])
-  category    Category @relation(fields: [categoryId], references: [id])
+  brand       Brand?    @relation(fields: [brandId], references: [id])
+  category    Category? @relation(fields: [categoryId], references: [id])
 
   images      ProductImage[]
   variants    ProductVariant[]
@@ -152,6 +154,7 @@ model ProductVariant {
 // 🖼️ PRODUCT IMAGES
 //
 
+/*
 model ProductImage {
   id          String @id @default(cuid())
   url         String
@@ -163,6 +166,24 @@ model ProductImage {
 
   createdAt   DateTime @default(now())
 }
+*/
+
+model ProductImage {
+  id          String @id @default(cuid())
+  url         String
+  publicId    String?
+  alt         String?
+
+  type        String @default("gallery")  // "main" | "gallery"
+  
+
+  productId   String
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+}
+
+
 
 //
 // 🛒 ORDER SYSTEM

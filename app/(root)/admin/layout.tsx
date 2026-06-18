@@ -29,7 +29,7 @@ export default async function RootLayout({
       <section className="dashboard_section h-full">
         <div className="container h-full">
           <div className="grid grid-cols-1 lg:grid-cols-5 h-full">
-            <div className="col-span-1 py-2 px-2 lg:py-6 bg-gray-300">
+            <div className="col-span-1 py-2 px-2 lg:py-6">
               <AdminMenu />
             </div>
             <div className="col-span-4 py-2 lg:py-6 px-4">
