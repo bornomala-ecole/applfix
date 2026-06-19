@@ -1,37 +1,38 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-const AdminMenu = () => {
-  const pathname = usePathname()
+const CustomerMenu = () => {
+  const pathname = usePathname();
 
   const menu = [
-    { name: "Dashboard", href: "/admin/dashboard" },
-    { name: "Products", href: "/admin/products" },
-    { name: "Brands", href: "/admin/brands" },
-    { name: "Categories", href: "/admin/categories" },
-    { name: "Users", href: "/admin/users" },
-  ]
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "My Profile", href: "/dashboard/profile" },
+    { name: "Security", href: "/dashboard/security" },
+    { name: "My Orders", href: "/dashboard/orders" },
+    { name: "Addresses", href: "/dashboard/addresses" },
+  ];
 
   return (
     <aside className="w-full h-full bg-white border rounded-xl p-4 shadow-sm">
-
       {/* HEADER */}
       <div className="mb-6">
         <h2 className="text-lg font-bold text-gray-800">
-          Admin Panel
+          My Account
         </h2>
+
         <p className="text-xs text-gray-500">
-          Management Dashboard
+          Customer Dashboard
         </p>
       </div>
 
       {/* MENU */}
       <nav className="flex flex-col gap-2">
-
         {menu.map((item) => {
-          const isActive = pathname === item.href
+          const isActive =
+            pathname === item.href ||
+            pathname.startsWith(`${item.href}/`);
 
           return (
             <Link
@@ -48,18 +49,16 @@ const AdminMenu = () => {
             >
               {item.name}
             </Link>
-          )
+          );
         })}
-
       </nav>
 
       {/* FOOTER */}
       <div className="mt-6 pt-4 border-t text-xs text-gray-400">
-        APPFLIX Admin v1.0
+        APPFLIX Customer v1.0
       </div>
-
     </aside>
-  )
-}
+  );
+};
 
-export default AdminMenu
+export default CustomerMenu;

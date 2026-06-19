@@ -38,7 +38,7 @@ export default function Header() {
   const getDashboardLink = () => {
     const role = session?.user?.role
 
-    if (role === "admin" || role === "super_admin") {
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
       return "/admin/dashboard"
     }
 

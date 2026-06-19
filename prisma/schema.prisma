@@ -13,6 +13,13 @@ datasource db {
 // =======================
 //
 
+enum UserRole {
+  CUSTOMER
+  MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -20,8 +27,10 @@ model User {
   emailVerified DateTime?
   image         String?
 
-  password String?
-  role     String  @default("user")
+  password        String?
+  role            UserRole         @default(CUSTOMER)
+  customerProfile CustomerProfile?
+  addresses       Address[]
 
   accounts Account[]
   orders   Order[]
@@ -63,6 +72,51 @@ model VerificationToken {
 // 📱 E-COMMERCE CORE
 // =======================
 //
+model CustomerProfile {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phone       String?
+  dateOfBirth DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AddressType {
+  SHIPPING
+  BILLING
+  BOTH
+}
+
+model Address {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type AddressType @default(SHIPPING)
+
+  fullName String?
+  phone    String?
+
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String?
+  postalCode   String?
+  country      String
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+}
 
 model Brand {
   id   String  @id @default(cuid())

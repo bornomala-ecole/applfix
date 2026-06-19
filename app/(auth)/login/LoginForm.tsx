@@ -6,6 +6,7 @@ import Image from "next/image"
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { toast } from "react-toastify"
 
 export default function LoginForm() {
   const [loading, setLoading] = useState(false)
@@ -28,7 +29,7 @@ export default function LoginForm() {
     setLoading(false)
 
     if (!res?.ok) {
-      alert("Invalid credentials")
+      toast.error("Invalid credentials")
       return
     }
 
@@ -39,9 +40,10 @@ export default function LoginForm() {
 
     // console.log("role:", role)
 
-    if (role === "admin" || role === "super_admin") {
+    if (role === "ADMIN" || role === "SUPER_ADMIN") {
       router.push("/admin/dashboard")
     } else {
+      //console.log("not admin or super_admin")
       router.push("/dashboard")
     }
   }

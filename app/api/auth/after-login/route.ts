@@ -7,9 +7,9 @@ export async function GET() {
 
   // console.log("custom route hit! User role:", role)
 
-  if (role === "admin" || role === "super_admin") {
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
     redirect("/admin/dashboard")
   }
-
-  redirect("/dashboard")
+  console.log("not admin or super_admin")
+  //redirect("/dashboard")
 }

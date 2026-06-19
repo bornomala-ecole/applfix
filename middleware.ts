@@ -12,7 +12,7 @@ export default auth((req) => {
 
   // 🔒 Role protection for admin routes
   if (url.pathname.startsWith("/admin")) {
-    const allowedRoles = ["admin", "super_admin"]
+    const allowedRoles = ["ADMIN", "SUPER_ADMIN"]
 
     if (!allowedRoles.includes(user.role!)) {
       return NextResponse.redirect(new URL("/dashboard", req.url))

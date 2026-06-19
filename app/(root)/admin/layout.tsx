@@ -18,9 +18,10 @@ export default async function RootLayout({
   if(!session){
     redirect('/login')
   }
-  const allowedRoles = ["admin", "superAdmin"]
+
+  const allowedRoles = ["ADMIN", "SUPER_ADMIN"];
   if (!allowedRoles.includes(session.user.role as string)) {
-    toast("You're not allowed to visit this page, this page is admin only!")
+    // toast("You're not allowed to visit this page, this page is admin only!")
     redirect("/")
   }
 
