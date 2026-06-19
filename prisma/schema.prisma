@@ -27,8 +27,9 @@ model User {
   emailVerified DateTime?
   image         String?
 
-  password        String?
-  role            UserRole         @default(CUSTOMER)
+  password String?
+  role     UserRole @default(CUSTOMER)
+
   customerProfile CustomerProfile?
   addresses       Address[]
 
@@ -37,6 +38,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role])
 }
 
 model Account {
@@ -57,6 +60,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -69,9 +73,10 @@ model VerificationToken {
 
 //
 // =======================
-// 📱 E-COMMERCE CORE
+// 👤 CUSTOMER PROFILE
 // =======================
 //
+
 model CustomerProfile {
   id String @id @default(cuid())
 
@@ -116,7 +121,14 @@ model Address {
 
   @@index([userId])
   @@index([type])
+  @@index([userId, isDefault])
 }
+
+//
+// =======================
+// 📱 E-COMMERCE CORE
+// =======================
+//
 
 model Brand {
   id   String  @id @default(cuid())
@@ -140,7 +152,7 @@ model Category {
 }
 
 //
-// 📱 PRODUCT (MAIN PHONE MODEL)
+// 📱 PRODUCT
 // Example: iPhone 15, Galaxy S24
 //
 
@@ -150,12 +162,17 @@ model Product {
   name String
   slug String @unique
 
-  description String?
+  description      String?
+  shortDescription String?
+
+  metaTitle       String?
+  metaDescription String?
 
   brandId    String?
   categoryId String?
 
-  isActive Boolean @default(true)
+  isActive   Boolean @default(true)
+  isFeatured Boolean @default(false)
 
   brand    Brand?    @relation(fields: [brandId], references: [id])
   category Category? @relation(fields: [categoryId], references: [id])
@@ -163,20 +180,24 @@ model Product {
   images   ProductImage[]
   variants ProductVariant[]
 
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
   orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([brandId])
   @@index([categoryId])
   @@index([isActive])
+  @@index([isFeatured])
+  @@index([createdAt])
 }
 
 //
-// 📦 VARIANT (CORE OF PHONE SELLING)
+// 📦 PRODUCT VARIANT
 // Example:
-// iPhone 15 → 128GB / Black / $999
+// iPhone 15 → 128GB / Black / price / stock
 //
+
 model ProductVariant {
   id String @id @default(cuid())
 
@@ -188,8 +209,14 @@ model ProductVariant {
   title String
   color String?
 
-  price Float
-  stock Int   @default(0)
+  price        Float
+  comparePrice Float?
+  costPrice    Float?
+
+  stock             Int @default(0)
+  lowStockThreshold Int @default(5)
+
+  isActive Boolean @default(true)
 
   orderItems OrderItem[]
 
@@ -197,23 +224,15 @@ model ProductVariant {
   updatedAt DateTime @updatedAt
 
   @@unique([productId, title, color])
+  @@index([productId])
+  @@index([isActive])
+  @@index([price])
+  @@index([stock])
 }
 
 //
 // 🖼️ PRODUCT IMAGES
 //
-
-/**
- * model ProductImage {
- * id          String @id @default(cuid())
- * url         String
- * publicId    String?
- * alt         String?
- * productId   String
- * product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
- * createdAt   DateTime @default(now())
- * }
- */
 
 model ProductImage {
   id       String  @id @default(cuid())
@@ -221,13 +240,19 @@ model ProductImage {
   publicId String?
   alt      String?
 
-  type String @default("gallery") // "main" | "gallery"
+  type      String @default("gallery") // "main" | "gallery"
+  sortOrder Int    @default(0)
 
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([type])
+  @@index([productId, type])
+  @@index([sortOrder])
 }
 
 //
@@ -250,6 +275,7 @@ model Order {
 
   @@index([userId])
   @@index([status])
+  @@index([createdAt])
 }
 
 //

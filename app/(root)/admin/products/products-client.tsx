@@ -214,10 +214,10 @@ export default function ProductsClient({
 
       {/* FILTERS */}
       <div className="bg-white p-4 rounded-lg border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="search_input_section mb-3">
           <form
             onSubmit={handleSearchSubmit}
-            className="md:col-span-1 flex gap-2"
+            className="md:col-span-[1.5] flex gap-2  "
           >
             <input
               type="text"
@@ -234,6 +234,10 @@ export default function ProductsClient({
               Search
             </button>
           </form>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          
 
           <select
             value={brandFilter}
@@ -328,7 +332,7 @@ export default function ProductsClient({
           return (
             <div
               key={product.id}
-              className="bg-white border rounded-xl p-4 flex flex-wrap gap-2 md:gap-0 items-center justify-between hover:shadow-sm transition"
+              className="bg-white border rounded-xl p-4 flex flex-wrap gap-2 md:gap-2 items-center justify-between hover:shadow-sm transition"
             >
               {/* LEFT */}
               <div className="flex items-center gap-4 flex-wrap">
