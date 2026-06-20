@@ -2,20 +2,34 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   usePathname,
   useRouter,
   useSearchParams,
 } from "next/navigation";
+import {
+  CalendarDays,
+  CreditCard,
+  Eye,
+  Package,
+  Search,
+  ShoppingBag,
+} from "lucide-react";
 
 type OrderItem = {
   id: string;
   name: string;
   price: number;
   quantity: number;
+  sku: string | null;
+  variantTitle: string | null;
+  color: string | null;
+  imageUrl: string | null;
   product: {
     id: string;
     name: string;
+    slug: string;
     images: {
       id: string;
       url: string;
@@ -32,10 +46,17 @@ type OrderItem = {
 
 type Order = {
   id: string;
+  subtotal: number;
+  shippingFee: number;
+  tax: number;
+  discount: number;
   total: number;
   status: string;
+  paymentMethod: string;
+  paymentStatus: string;
   createdAt: string;
   updatedAt: string;
+  totalQuantity: number;
   _count: {
     items: number;
   };
@@ -43,21 +64,25 @@ type Order = {
 };
 
 type Props = {
-  orders: Order[];
-  page: number;
-  total: number;
-  limit: number;
-  search: string;
-  statusFilter: string;
+  orders?: Order[];
+  page?: number;
+  total?: number;
+  limit?: number;
+  search?: string;
+  statusFilter?: string;
+  paymentStatusFilter?: string;
 };
 
+const FRANCE_TIME_ZONE = "Europe/Paris";
+
 export default function OrdersClient({
-  orders,
-  page,
-  total,
-  limit,
-  search,
-  statusFilter,
+  orders = [],
+  page = 1,
+  total = 0,
+  limit = 10,
+  search = "",
+  statusFilter = "all",
+  paymentStatusFilter = "all",
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -66,11 +91,15 @@ export default function OrdersClient({
   const [searchValue, setSearchValue] = useState(search);
   const [isPending, startTransition] = useTransition();
 
-  const totalPages = Math.ceil(total / limit);
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeTotal = Number.isFinite(total) ? total : 0;
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 10;
+  const totalPages = Math.ceil(safeTotal / safeLimit);
 
   function updateQuery(paramsToUpdate: {
     search?: string;
     status?: string;
+    paymentStatus?: string;
     page?: number;
   }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -95,12 +124,23 @@ export default function OrdersClient({
       params.set("page", "1");
     }
 
+    if (paramsToUpdate.paymentStatus !== undefined) {
+      if (paramsToUpdate.paymentStatus === "all") {
+        params.delete("paymentStatus");
+      } else {
+        params.set("paymentStatus", paramsToUpdate.paymentStatus);
+      }
+
+      params.set("page", "1");
+    }
+
     if (paramsToUpdate.page !== undefined) {
       params.set("page", String(paramsToUpdate.page));
     }
 
     startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
+      const queryString = params.toString();
+      router.push(queryString ? `${pathname}?${queryString}` : pathname);
     });
   }
 
@@ -126,11 +166,16 @@ export default function OrdersClient({
     });
   }
 
-  function formatDate(date: string) {
-    return new Intl.DateTimeFormat("en-US", {
+  function formatFranceDate(date: string) {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: FRANCE_TIME_ZONE,
+      day: "2-digit",
       month: "short",
-      day: "numeric",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZoneName: "short",
     }).format(new Date(date));
   }
 
@@ -138,10 +183,10 @@ export default function OrdersClient({
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(price);
+    }).format(price || 0);
   }
 
-  function getStatusBadge(status: string) {
+  function getOrderStatusBadge(status: string) {
     switch (status) {
       case "processing":
         return "bg-blue-100 text-blue-700";
@@ -152,55 +197,83 @@ export default function OrdersClient({
       case "cancelled":
         return "bg-red-100 text-red-700";
       default:
+        return "bg-yellow-100 text-yellow-700";
+    }
+  }
+
+  function getPaymentStatusBadge(status: string) {
+    switch (status) {
+      case "paid":
+        return "bg-green-100 text-green-700";
+      case "failed":
+        return "bg-red-100 text-red-700";
+      case "refunded":
+        return "bg-purple-100 text-purple-700";
+      default:
         return "bg-orange-100 text-orange-700";
     }
   }
 
   function formatStatus(status: string) {
+    if (!status) return "Unknown";
+
     return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          <p className="text-sm font-medium text-primaryRed">
+            Customer Dashboard
+          </p>
+
           <h1 className="text-3xl font-bold text-gray-900">
             My Orders
           </h1>
 
-          <p className="text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500">
             Total Orders:{" "}
-            <span className="font-semibold">{total}</span>
+            <span className="font-semibold">{safeTotal}</span>
           </p>
         </div>
 
         <Link
           href="/shop"
-          className="bg-black text-white px-5 py-2 rounded-lg hover:bg-gray-800"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800"
         >
+          <ShoppingBag size={16} />
           Continue Shopping
         </Link>
       </div>
 
       {/* FILTERS */}
-      <div className="bg-white p-4 rounded-lg border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="mb-6 rounded-2xl border bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <Search size={18} className="text-gray-500" />
+
+          <h2 className="font-semibold text-gray-900">
+            Search & Filter Orders
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
           <form
             onSubmit={handleSearchSubmit}
-            className="md:col-span-2 flex gap-2"
+            className="flex gap-2 lg:col-span-2"
           >
             <input
               type="text"
-              placeholder="Search by order ID or product name..."
+              placeholder="Search by order ID, product, or SKU..."
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              className="border p-2 rounded w-full"
+              className="w-full rounded-xl border p-3 text-sm outline-none focus:border-black"
             />
 
             <button
               type="submit"
-              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
+              className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             >
               Search
             </button>
@@ -213,9 +286,9 @@ export default function OrdersClient({
                 status: e.target.value,
               })
             }
-            className="border p-2 rounded"
+            className="rounded-xl border p-3 text-sm outline-none focus:border-black"
           >
-            <option value="all">All Status</option>
+            <option value="all">All Order Status</option>
             <option value="pending">Pending</option>
             <option value="processing">Processing</option>
             <option value="shipped">Shipped</option>
@@ -223,117 +296,173 @@ export default function OrdersClient({
             <option value="cancelled">Cancelled</option>
           </select>
 
+          <select
+            value={paymentStatusFilter}
+            onChange={(e) =>
+              updateQuery({
+                paymentStatus: e.target.value,
+              })
+            }
+            className="rounded-xl border p-3 text-sm outline-none focus:border-black"
+          >
+            <option value="all">All Payment Status</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="paid">Paid</option>
+            <option value="failed">Failed</option>
+            <option value="refunded">Refunded</option>
+          </select>
+
           <button
             type="button"
             onClick={clearFilters}
-            className="border px-4 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm font-medium"
+            className="rounded-xl border bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             Clear Filters
           </button>
         </div>
 
         {isPending && (
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="mt-3 text-xs text-gray-400">
             Loading orders...
           </p>
         )}
       </div>
 
       {/* LIST */}
-      <div className="space-y-3">
-        {orders.length === 0 && (
-          <div className="bg-white border rounded-xl p-6 text-center text-gray-500">
-            No orders found.
+      <div className="space-y-4">
+        {safeOrders.length === 0 && (
+          <div className="rounded-2xl border bg-white p-10 text-center shadow-sm">
+            <Package className="mx-auto mb-3 text-gray-400" size={34} />
+
+            <h3 className="font-semibold text-gray-900">
+              No orders found
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Your placed orders will appear here.
+            </p>
           </div>
         )}
 
-        {orders.map((order) => {
+        {safeOrders.map((order) => {
+          const orderItems = Array.isArray(order.items) ? order.items : [];
+          const previewItems = orderItems.slice(0, 3);
+          const itemCount = order._count?.items || orderItems.length;
+          const totalQuantity =
+            order.totalQuantity ||
+            orderItems.reduce((sum, item) => sum + item.quantity, 0);
+          const extraItems = itemCount - previewItems.length;
+
           return (
             <div
               key={order.id}
-              className="bg-white border rounded-xl p-4 hover:shadow-sm transition"
+              className="rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md"
             >
               {/* TOP ROW */}
-              <div className="flex flex-wrap gap-3 items-start justify-between border-b pb-4 mb-4">
+              <div className="mb-4 flex flex-col gap-4 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold text-gray-900">
+                    <h2 className="text-lg font-bold text-gray-900">
                       Order #{order.id.slice(0, 8)}
                     </h2>
 
                     <span
-                      className={`px-2 py-0.5 text-xs rounded ${getStatusBadge(
+                      className={`inline-flex h-fit items-center rounded-full px-2.5 py-1 text-xs font-medium ${getOrderStatusBadge(
                         order.status
                       )}`}
                     >
                       {formatStatus(order.status)}
                     </span>
+
+                    <span
+                      className={`inline-flex h-fit items-center rounded-full px-2.5 py-1 text-xs font-medium ${getPaymentStatusBadge(
+                        order.paymentStatus
+                      )}`}
+                    >
+                      {formatStatus(order.paymentStatus)}
+                    </span>
                   </div>
 
-                  <p className="text-xs text-gray-500 mt-1">
-                    Placed on {formatDate(order.createdAt)}
-                  </p>
+                  <div className="mt-2 space-y-1 text-xs text-gray-500">
+                    <p className="flex items-center gap-1.5">
+                      <CalendarDays size={13} />
+                      Placed: {formatFranceDate(order.createdAt)}
+                    </p>
+
+                    <p className="flex items-center gap-1.5">
+                      <CalendarDays size={13} />
+                      Updated: {formatFranceDate(order.updatedAt)}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="text-right">
-                  <p className="text-lg font-bold text-gray-900">
+                <div className="text-left lg:text-right">
+                  <p className="text-xl font-bold text-gray-900">
                     {formatPrice(order.total)}
                   </p>
 
-                  <p className="text-xs text-gray-500">
-                    {order._count.items} item
-                    {order._count.items > 1 ? "s" : ""}
+                  <p className="mt-1 text-xs text-gray-500">
+                    {totalQuantity} item
+                    {totalQuantity > 1 ? "s" : ""}
+                  </p>
+
+                  <p className="mt-1 flex items-center gap-1 text-xs capitalize text-gray-500 lg:justify-end">
+                    <CreditCard size={13} />
+                    {order.paymentMethod || "cod"}
                   </p>
                 </div>
               </div>
 
               {/* ORDER ITEMS */}
               <div className="space-y-3">
-                {order.items.map((item) => {
-                  const mainImage = item.product.images?.[0];
+                {previewItems.map((item) => {
+                  const fallbackImage = item.product?.images?.[0];
+                  const mainImage = item.imageUrl || fallbackImage?.url;
+                  const imageAlt = fallbackImage?.alt || item.name;
+                  const variantTitle =
+                    item.variantTitle || item.variant?.title;
+                  const color = item.color || item.variant?.color;
 
                   return (
                     <div
                       key={item.id}
-                      className="flex flex-wrap items-center justify-between gap-3"
+                      className="flex flex-col gap-3 rounded-xl bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        {mainImage ? (
-                          <img
-                            src={mainImage.url}
-                            alt={mainImage.alt || item.name}
-                            className="w-12 h-12 rounded-lg object-cover border"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-400">
-                            No Image
-                          </div>
-                        )}
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-white">
+                          {mainImage ? (
+                            <Image
+                              src={mainImage}
+                              alt={imageAlt}
+                              fill
+                              sizes="56px"
+                              className="object-contain p-2"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+                              No Image
+                            </div>
+                          )}
+                        </div>
 
                         <div>
                           <h3 className="text-sm font-semibold text-gray-900">
-                            {item.name}
+                            {item.name || item.product?.name || "Product"}
                           </h3>
 
-                          <div className="flex gap-2 mt-1 flex-wrap text-xs text-gray-500">
-                            <span>
-                              {item.variant.title}
-                            </span>
+                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500">
+                            {variantTitle && <span>{variantTitle}</span>}
 
-                            {item.variant.color && (
-                              <span>
-                                Color: {item.variant.color}
-                              </span>
-                            )}
+                            {color && <span>Color: {color}</span>}
 
-                            <span>
-                              Qty: {item.quantity}
-                            </span>
+                            {item.sku && <span>SKU: {item.sku}</span>}
+
+                            <span>Qty: {item.quantity}</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="text-sm font-semibold text-gray-900">
+                      <div className="text-sm font-semibold text-gray-900 sm:text-right">
                         {formatPrice(item.price * item.quantity)}
                       </div>
                     </div>
@@ -341,20 +470,20 @@ export default function OrdersClient({
                 })}
               </div>
 
-              {/* MORE ITEMS NOTICE */}
-              {order._count.items > order.items.length && (
-                <p className="text-xs text-gray-500 mt-3">
-                  + {order._count.items - order.items.length} more item
-                  {order._count.items - order.items.length > 1 ? "s" : ""}
+              {extraItems > 0 && (
+                <p className="mt-3 text-xs text-gray-500">
+                  + {extraItems} more item
+                  {extraItems > 1 ? "s" : ""}
                 </p>
               )}
 
               {/* ACTIONS */}
-              <div className="flex justify-end mt-4 border-t pt-4">
+              <div className="mt-4 flex justify-end border-t pt-4">
                 <Link
                   href={`/dashboard/orders/${order.id}`}
-                  className="px-3 py-1 text-xs bg-gray-800 text-white rounded hover:bg-gray-700"
+                  className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
                 >
+                  <Eye size={15} />
                   View Details
                 </Link>
               </div>
@@ -365,15 +494,16 @@ export default function OrdersClient({
 
       {/* PAGINATION */}
       {totalPages > 1 && (
-        <div className="flex gap-2 mt-8 justify-center flex-wrap">
+        <div className="mt-8 flex flex-wrap justify-center gap-2">
           {Array.from({ length: totalPages }, (_, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => changePage(i + 1)}
-              className={`px-3 py-1 rounded border text-sm ${
+              className={`rounded-lg border px-3 py-1 text-sm ${
                 page === i + 1
                   ? "bg-black text-white"
-                  : "bg-white"
+                  : "bg-white hover:bg-gray-50"
               }`}
             >
               {i + 1}

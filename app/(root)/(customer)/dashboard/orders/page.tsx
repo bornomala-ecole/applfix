@@ -9,22 +9,22 @@ type Props = {
     page?: string;
     search?: string;
     status?: string;
+    paymentStatus?: string;
   }>;
 };
 
-export default async function DashboardOrdersPage({
-  searchParams,
-}: Props) {
+export default async function DashboardOrdersPage({ searchParams }: Props) {
   const {
     page: pageParam,
     search: searchParam,
     status: statusParam,
+    paymentStatus: paymentStatusParam,
   } = await searchParams;
 
   const session = await auth();
 
   if (!session?.user?.id) {
-    redirect("/login");
+    redirect("/login?callbackUrl=/dashboard/orders");
   }
 
   const page = Math.max(Number(pageParam || 1), 1);
@@ -41,9 +41,21 @@ export default async function DashboardOrdersPage({
     "cancelled",
   ];
 
+  const allowedPaymentStatuses = [
+    "unpaid",
+    "paid",
+    "failed",
+    "refunded",
+  ];
+
   const status =
     statusParam && allowedStatuses.includes(statusParam)
       ? statusParam
+      : "all";
+
+  const paymentStatus =
+    paymentStatusParam && allowedPaymentStatuses.includes(paymentStatusParam)
+      ? paymentStatusParam
       : "all";
 
   const where: Prisma.OrderWhereInput = {
@@ -67,11 +79,25 @@ export default async function DashboardOrdersPage({
             },
           },
         },
+        {
+          items: {
+            some: {
+              sku: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          },
+        },
       ],
     }),
 
     ...(status !== "all" && {
       status,
+    }),
+
+    ...(paymentStatus !== "all" && {
+      paymentStatus,
     }),
   };
 
@@ -80,8 +106,14 @@ export default async function DashboardOrdersPage({
       where,
       select: {
         id: true,
+        subtotal: true,
+        shippingFee: true,
+        tax: true,
+        discount: true,
         total: true,
         status: true,
+        paymentMethod: true,
+        paymentStatus: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -95,10 +127,15 @@ export default async function DashboardOrdersPage({
             name: true,
             price: true,
             quantity: true,
+            sku: true,
+            variantTitle: true,
+            color: true,
+            imageUrl: true,
             product: {
               select: {
                 id: true,
                 name: true,
+                slug: true,
                 images: {
                   where: {
                     type: "main",
@@ -121,7 +158,9 @@ export default async function DashboardOrdersPage({
               },
             },
           },
-          take: 3,
+          orderBy: {
+            createdAt: "asc",
+          },
         },
       },
       orderBy: {
@@ -140,6 +179,9 @@ export default async function DashboardOrdersPage({
     ...order,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
+    totalQuantity: order.items.reduce((sum, item) => {
+      return sum + item.quantity;
+    }, 0),
   }));
 
   return (
@@ -150,6 +192,7 @@ export default async function DashboardOrdersPage({
       limit={limit}
       search={search}
       statusFilter={status}
+      paymentStatusFilter={paymentStatus}
     />
   );
 }
