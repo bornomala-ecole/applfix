@@ -12,6 +12,7 @@ const AdminMenu = () => {
     { name: "Brands", href: "/admin/brands" },
     { name: "Categories", href: "/admin/categories" },
     { name: "Users", href: "/admin/users" },
+    { name: "Orders", href: "/admin/orders" },
   ]
 
   return (
