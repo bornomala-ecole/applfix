@@ -4,6 +4,13 @@ import { useState, useRef, useEffect } from "react"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
 import Image from "next/image"
+import {
+  getGuestCart,
+  getGuestCartCount,
+  clearGuestCart,
+} from "@/lib/cart/guestCart";
+
+
 
 import {
   User,
@@ -22,6 +29,8 @@ import {
 import CartDrawer from "../cart/CartDrawer"
 import MobileMenuDrawer from "./MobileMenuDrawer"
 
+const GUEST_CART_SYNC_LOCK = "guest_cart_sync_in_progress";
+
 export default function Header() {
   const { data: session, status } = useSession()
 
@@ -29,6 +38,9 @@ export default function Header() {
   const [showCart, setShowCart] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+
+  const [cartCount, setCartCount] = useState(0);
+
 
   const userRef = useRef<HTMLDivElement | null>(null)
 
@@ -42,7 +54,7 @@ export default function Header() {
       return "/admin/dashboard"
     }
 
-    if (role === "manager") {
+    if (role === "MANAGER") {
       return "/manager/dashboard"
     }
 
@@ -78,6 +90,111 @@ export default function Header() {
 
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  /*
+  async function loadCartCount() {
+    if (!session) {
+      setCartCount(0);
+      return;
+    }
+  
+    const res = await fetch("/api/cart", {
+      cache: "no-store",
+    });
+  
+    if (!res.ok) {
+      setCartCount(0);
+      return;
+    }
+  
+    const data = await res.json();
+    setCartCount(data.count || 0);
+  }
+    */
+  async function loadCartCount() {
+    if (status === "loading") return;
+  
+    if (status !== "authenticated") {
+      setCartCount(getGuestCartCount());
+      return;
+    }
+  
+    const res = await fetch("/api/cart", {
+      cache: "no-store",
+    });
+  
+    if (!res.ok) {
+      setCartCount(0);
+      return;
+    }
+  
+    const data = await res.json();
+    setCartCount(data.count || 0);
+  }
+  
+  async function syncGuestCartToDatabase() {
+    if (status !== "authenticated") return;
+  
+    const guestCart = getGuestCart();
+  
+    if (!guestCart.length) return;
+  
+    // Prevent duplicate sync in React Strict Mode / re-render
+    if (localStorage.getItem(GUEST_CART_SYNC_LOCK) === "true") {
+      return;
+    }
+  
+    localStorage.setItem(GUEST_CART_SYNC_LOCK, "true");
+  
+    try {
+      for (const item of guestCart) {
+        await fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          }),
+        });
+      }
+  
+      clearGuestCart();
+      window.dispatchEvent(new Event("cart-updated"));
+    } catch (error) {
+      console.error("GUEST_CART_SYNC_ERROR", error);
+    } finally {
+      localStorage.removeItem(GUEST_CART_SYNC_LOCK);
+    }
+  }
+
+
+  useEffect(() => {
+    async function run() {
+      if (status === "loading") return;
+  
+      if (status === "authenticated") {
+        await syncGuestCartToDatabase();
+      }
+  
+      await loadCartCount();
+    }
+  
+    run();
+  
+    const handleCartUpdated = () => {
+      loadCartCount();
+    };
+  
+    window.addEventListener("cart-updated", handleCartUpdated);
+  
+    return () => {
+      window.removeEventListener("cart-updated", handleCartUpdated);
+    };
+  }, [status]);
+
 
   return (
     <>
@@ -142,9 +259,19 @@ export default function Header() {
               {/* Right Icons */}
               <div className="nav-right">
                 <div className="flex gap-2 items-center">
-                  <button type="button" onClick={toggleCart}>
-                    <ShoppingCart className="cursor-pointer hover:text-red-600 w-6 h-6" />
-                  </button>
+                <button
+                  type="button"
+                  onClick={toggleCart}
+                  className="relative"
+                >
+                  <ShoppingCart className="cursor-pointer hover:text-red-600 w-6 h-6" />
+
+                  {cartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-5 h-5 rounded-full bg-primaryRed text-white text-[11px] flex items-center justify-center px-1">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
 
                   {/* User Dropdown */}
                   <div className="group relative z-20" ref={userRef}>

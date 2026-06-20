@@ -3,6 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { addGuestCartItem } from "@/lib/cart/guestCart";
+
+
 import {
   ArrowLeft,
   Check,
@@ -89,11 +93,13 @@ type RelatedProduct = {
 type Props = {
   product: Product;
   relatedProducts: RelatedProduct[];
+  initialWishlisted: boolean;
 };
 
 export default function ProductDetailsClient({
   product,
   relatedProducts,
+  initialWishlisted,
 }: Props) {
   const mainImage =
     product.images.find((image) => image.type === "main") ||
@@ -105,6 +111,9 @@ export default function ProductDetailsClient({
   const [selectedVariantId, setSelectedVariantId] = useState(
     product.variants[0]?.id || ""
   );
+
+  const [isWishlisted, setIsWishlisted] = useState(initialWishlisted);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   const selectedVariant = useMemo(() => {
     return (
@@ -155,7 +164,9 @@ export default function ProductDetailsClient({
     );
   }
 
-  function handleAddToCart() {
+  const { status } = useSession();
+
+  async function handleAddToCart() {
     if (!selectedVariant) {
       toast.error("Please select a variant");
       return;
@@ -166,38 +177,88 @@ export default function ProductDetailsClient({
       return;
     }
 
-    const cartItem = {
-      productId: product.id,
-      variantId: selectedVariant.id,
-      name: product.name,
-      slug: product.slug,
-      image: selectedImage?.url || "",
-      variantTitle: selectedVariant.title,
-      color: selectedVariant.color,
-      price: selectedVariant.price,
-      quantity,
-    };
+    // =========================
+    // GUEST CART
+    // =========================
+    if (status !== "authenticated") {
+      addGuestCartItem({
+        productId: product.id,
+        variantId: selectedVariant.id,
+        name: product.name,
+        slug: product.slug,
+        image: selectedImage?.url || "",
+        variantTitle: selectedVariant.title,
+        color: selectedVariant.color,
+        price: selectedVariant.price,
+        quantity,
+        stock: selectedVariant.stock,
+      });
 
-    const existingCart = JSON.parse(
-      localStorage.getItem("cart") || "[]"
-    );
-
-    const existingIndex = existingCart.findIndex(
-      (item: any) => item.variantId === selectedVariant.id
-    );
-
-    if (existingIndex >= 0) {
-      existingCart[existingIndex].quantity += quantity;
-    } else {
-      existingCart.push(cartItem);
+      toast.success("Product added to cart");
+      return;
     }
 
-    localStorage.setItem("cart", JSON.stringify(existingCart));
+    // =========================
+    // DATABASE CART
+    // =========================
+    const res = await fetch("/api/cart", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        productId: product.id,
+        variantId: selectedVariant.id,
+        quantity,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data.message || "Failed to add product to cart");
+      return;
+    }
 
     window.dispatchEvent(new Event("cart-updated"));
 
     toast.success("Product added to cart");
   }
+
+  async function handleToggleWishlist() {
+    try {
+      setWishlistLoading(true);
+  
+      const res = await fetch("/api/wishlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: product.id,
+        }),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        toast.error(data.message || "Failed to update wishlist");
+        return;
+      }
+  
+      setIsWishlisted(Boolean(data.wishlisted));
+  
+      toast.success(data.message || "Wishlist updated");
+  
+      window.dispatchEvent(new Event("wishlist-updated"));
+    } catch (error) {
+      toast.error("Something went wrong");
+    } finally {
+      setWishlistLoading(false);
+    }
+  }
+
+  
 
   return (
     <main className="bg-gray-50 min-h-screen py-8">
@@ -471,10 +532,24 @@ export default function ProductDetailsClient({
 
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-2 border px-5 py-3 rounded-xl font-medium hover:bg-gray-50"
+                onClick={handleToggleWishlist}
+                disabled={wishlistLoading}
+                className={`inline-flex items-center justify-center gap-2 border px-5 py-3 rounded-xl font-medium transition disabled:opacity-50 ${
+                  isWishlisted
+                    ? "border-primaryRed bg-red-50 text-primaryRed"
+                    : "hover:bg-gray-50"
+                }`}
               >
-                <Heart size={18} />
-                Wishlist
+                <Heart
+                  size={18}
+                  className={isWishlisted ? "fill-primaryRed text-primaryRed" : ""}
+                />
+
+                {wishlistLoading
+                  ? "Updating..."
+                  : isWishlisted
+                  ? "Wishlisted"
+                  : "Wishlist"}
               </button>
             </div>
 

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import ProductDetailsClient from "./product-details-client";
 import type { Metadata } from "next";
+import { auth } from "@/auth";
 
 type Props = {
   params: Promise<{
@@ -41,6 +42,8 @@ export async function generateMetadata({
       title: "Product Not Found",
     };
   }
+
+
 
   return {
     title: product.metaTitle || product.name,
@@ -213,10 +216,33 @@ export default async function ProductDetailsPage({ params }: Props) {
     take: 4,
   });
 
+
+  const session = await auth();
+
+  let initialWishlisted = false;
+
+  if (session?.user?.id) {
+    const wishlistItem = await prisma.wishlistItem.findUnique({
+      where: {
+        userId_productId: {
+          userId: session.user.id,
+          productId: product.id,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    initialWishlisted = Boolean(wishlistItem);
+  }
+
+
   return (
     <ProductDetailsClient
       product={product}
       relatedProducts={relatedProducts}
+      initialWishlisted={initialWishlisted}
     />
   );
 }
