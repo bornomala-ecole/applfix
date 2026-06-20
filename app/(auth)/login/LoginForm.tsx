@@ -5,14 +5,31 @@ import Link from "next/link"
 import Image from "next/image"
 import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "react-toastify"
+
+function getSafeCallbackUrl(callbackUrl: string | null) {
+  if (!callbackUrl) return null
+
+  // Only allow internal URLs
+  if (!callbackUrl.startsWith("/")) return null
+
+  // Prevent protocol-relative external URLs like //evil.com
+  if (callbackUrl.startsWith("//")) return null
+
+  return callbackUrl
+}
 
 export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const callbackUrl = getSafeCallbackUrl(
+    searchParams.get("callbackUrl")
+  )
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -38,27 +55,40 @@ export default function LoginForm() {
 
     const role = session?.user?.role
 
-    // console.log("role:", role)
+    // ✅ If user came from checkout/cart protected flow,
+    // send them back there first.
+    if (callbackUrl) {
+      router.push(callbackUrl)
+      return
+    }
 
+    // ✅ Otherwise use role-based redirect
     if (role === "ADMIN" || role === "SUPER_ADMIN") {
       router.push("/admin/dashboard")
-    } else {
-      //console.log("not admin or super_admin")
-      router.push("/dashboard")
+      return
     }
+
+    if (role === "MANAGER") {
+      router.push("/manager/dashboard")
+      return
+    }
+
+    router.push("/dashboard")
   }
 
   const handleGoogleLogin = () => {
+    const afterLoginUrl = callbackUrl
+      ? `/api/auth/after-login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      : "/api/auth/after-login"
+
     signIn("google", {
-      callbackUrl: "/api/auth/after-login",
+      callbackUrl: afterLoginUrl,
     })
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-
       <div className="w-full max-w-md bg-white border rounded-2xl shadow-sm p-8">
-
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">
           <Link href="/">
@@ -82,7 +112,6 @@ export default function LoginForm() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
           <input
             name="email"
             type="email"
@@ -128,6 +157,7 @@ export default function LoginForm() {
 
         {/* GOOGLE */}
         <button
+          type="button"
           onClick={handleGoogleLogin}
           className="w-full border rounded-lg py-3 flex items-center justify-center gap-2 hover:bg-gray-50 transition"
         >
@@ -143,7 +173,14 @@ export default function LoginForm() {
         {/* Register */}
         <p className="text-center text-sm text-gray-500 mt-6">
           Don’t have an account?{" "}
-          <Link href="/register" className="text-primaryRed font-medium hover:underline">
+          <Link
+            href={
+              callbackUrl
+                ? `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                : "/register"
+            }
+            className="text-primaryRed font-medium hover:underline"
+          >
             Create account
           </Link>
         </p>
