@@ -1,3 +1,4 @@
+/*
 export interface Product {
   id: number;
   name: string;
@@ -37,4 +38,61 @@ export interface DetailedProduct extends Product {
     color: { name: string; hex: string }[];
     storage: { size: string; price: number }[];
   };
+}
+  */
+
+export type SortOption =
+  | "featured"
+  | "newest"
+  | "price_asc"
+  | "price_desc";
+
+export const sortOptions: Record<SortOption, string> = {
+  featured: "Featured",
+  newest: "Newest",
+  price_asc: "Price: Low to High",
+  price_desc: "Price: High to Low",
+};
+
+export interface FilterState {
+  brands: string[];
+  priceRange: [number, number];
+  onSale: boolean;
+}
+
+export interface BrandFilterOption {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface ShopProduct {
+  id: string;
+  name: string;
+  slug: string;
+
+  brand: string;
+  category?: string | null;
+
+  image: string;
+  imageAlt: string;
+
+  price: number;
+  originalPrice?: number | null;
+
+  variantId: string;
+  variantTitle: string;
+  color?: string | null;
+  stock: number;
+
+  shortDescription?: string | null;
+
+  badge?: "New" | "Sale" | "Featured" | "Out of Stock";
+}
+
+export interface ShopPagination {
+  currentPage: number;
+  pageSize: number;
+  totalProducts: number;
+  totalPages: number;
 }

@@ -1,103 +1,199 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { FilterState } from "@/lib/types/shop";
-import { X } from "lucide-react";
+import { Search, RotateCcw } from "lucide-react";
+import { BrandFilterOption, FilterState } from "@/lib/types/shop";
 
 interface FiltersSidebarProps {
+  query: string;
+  onQueryChange: (value: string) => void;
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
+  availableBrands: BrandFilterOption[];
+  priceBounds: [number, number];
+  onReset: () => void;
 }
 
-const brands = ["Apple", "Samsung", "Google", "OnePlus", "Xiaomi"];
+export default function FiltersSidebar({
+  query,
+  onQueryChange,
+  filters,
+  onFiltersChange,
+  availableBrands,
+  priceBounds,
+  onReset,
+}: FiltersSidebarProps) {
+  function toggleBrand(brandName: string) {
+    const exists = filters.brands.includes(brandName);
 
-export default function FiltersSidebar({ filters, onFiltersChange }: FiltersSidebarProps) {
-  const [priceRange, setPriceRange] = useState<[number, number]>(filters.priceRange);
+    onFiltersChange({
+      ...filters,
+      brands: exists
+        ? filters.brands.filter((brand) => brand !== brandName)
+        : [...filters.brands, brandName],
+    });
+  }
 
-  const handleBrandChange = (brand: string) => {
-    const newBrands = filters.brands.includes(brand)
-      ? filters.brands.filter((b) => b !== brand)
-      : [...filters.brands, brand];
-    onFiltersChange({ ...filters, brands: newBrands });
-  };
+  function updateMinPrice(value: string) {
+    const min = Number(value) || priceBounds[0];
 
-  const handlePriceChange = () => {
-    onFiltersChange({ ...filters, priceRange });
-  };
+    onFiltersChange({
+      ...filters,
+      priceRange: [min, Math.max(min, filters.priceRange[1])],
+    });
+  }
 
-  const handleSaleChange = () => {
-    onFiltersChange({ ...filters, onSale: !filters.onSale });
-  };
+  function updateMaxPrice(value: string) {
+    const max = Number(value) || priceBounds[1];
 
-  // Clear all filters
-  const clearFilters = () => {
-    onFiltersChange({ brands: [], priceRange: [0, 2000], onSale: false });
-    setPriceRange([0, 2000]);
-  };
+    onFiltersChange({
+      ...filters,
+      priceRange: [filters.priceRange[0], Math.max(filters.priceRange[0], max)],
+    });
+  }
 
   return (
-    <div className="rounded-lg border p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Filters</h3>
-        <button onClick={clearFilters} className="text-sm text-gray-500 hover:text-primaryRed">
-          Clear All
+    <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-gray-950">Filters</h2>
+          <p className="mt-1 text-xs text-gray-500">Live search and refine</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-primaryRed hover:text-primaryRed"
+        >
+          <RotateCcw size={14} />
+          Reset
         </button>
       </div>
 
-      {/* Brand Filter */}
-      <div className="mb-6">
-        <h4 className="mb-3 font-medium">Brand</h4>
-        <div className="space-y-2">
-          {brands.map((brand) => (
-            <label key={brand} className="flex items-center">
+      <div className="space-y-5">
+        <div>
+          <label
+            htmlFor="shop-search"
+            className="mb-2 block text-sm font-semibold text-gray-950"
+          >
+            Search
+          </label>
+
+          <div className="relative">
+            <Search
+              size={17}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
+            <input
+              id="shop-search"
+              type="search"
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Search phones..."
+              className="h-11 w-full rounded-2xl border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-primaryRed focus:ring-2 focus:ring-red-100"
+            />
+          </div>
+
+          <p className="mt-2 text-xs text-gray-400">
+            Results update automatically as you type.
+          </p>
+        </div>
+
+        <div className="border-t border-gray-100 pt-5">
+          <h3 className="mb-4 text-sm font-semibold text-gray-950">Brand</h3>
+
+          {availableBrands.length > 0 ? (
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {availableBrands.map((brand) => (
+                <label
+                  key={brand.id}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50"
+                >
+                  <span className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={filters.brands.includes(brand.name)}
+                      onChange={() => toggleBrand(brand.name)}
+                      className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
+                    />
+
+                    <span className="text-sm font-medium text-gray-700">
+                      {brand.name}
+                    </span>
+                  </span>
+
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                    {brand.count}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No brands found.</p>
+          )}
+        </div>
+
+        <div className="border-t border-gray-100 pt-5">
+          <h3 className="mb-4 text-sm font-semibold text-gray-950">
+            Price Range
+          </h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label>
+              <span className="mb-1 block text-xs font-medium text-gray-500">
+                Min
+              </span>
+
               <input
-                type="checkbox"
-                checked={filters.brands.includes(brand)}
-                onChange={() => handleBrandChange(brand)}
-                className="mr-3 h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
+                type="number"
+                min={priceBounds[0]}
+                max={priceBounds[1]}
+                value={filters.priceRange[0]}
+                onChange={(event) => updateMinPrice(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm outline-none transition focus:border-primaryRed focus:ring-2 focus:ring-red-100"
               />
-              <span className="text-sm text-gray-700">{brand}</span>
             </label>
-          ))}
-        </div>
-      </div>
 
-      {/* Price Filter */}
-      <div className="mb-6">
-        <h4 className="mb-3 font-medium">Price Range</h4>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            value={priceRange[0]}
-            onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
-            className="w-full rounded border px-3 py-1 text-sm"
-            placeholder="Min"
-          />
-          <span>-</span>
-          <input
-            type="number"
-            value={priceRange[1]}
-            onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
-            className="w-full rounded border px-3 py-1 text-sm"
-            placeholder="Max"
-          />
-        </div>
-        <button onClick={handlePriceChange} className="mt-2 w-full rounded bg-gray-100 py-1 text-sm hover:bg-gray-200">
-          Apply
-        </button>
-      </div>
+            <label>
+              <span className="mb-1 block text-xs font-medium text-gray-500">
+                Max
+              </span>
 
-      {/* Sale Filter */}
-      <div className="mb-6">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={filters.onSale}
-            onChange={handleSaleChange}
-            className="mr-3 h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
-          />
-          <span className="text-sm font-medium text-gray-700">On Sale</span>
-        </label>
+              <input
+                type="number"
+                min={priceBounds[0]}
+                max={priceBounds[1]}
+                value={filters.priceRange[1]}
+                onChange={(event) => updateMaxPrice(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-gray-200 px-3 text-sm outline-none transition focus:border-primaryRed focus:ring-2 focus:ring-red-100"
+              />
+            </label>
+          </div>
+
+          <p className="mt-2 text-xs text-gray-400">
+            Available range: ${priceBounds[0]} - ${priceBounds[1]}
+          </p>
+        </div>
+
+        <div className="border-t border-gray-100 pt-5">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={filters.onSale}
+              onChange={(event) =>
+                onFiltersChange({
+                  ...filters,
+                  onSale: event.target.checked,
+                })
+              }
+              className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
+            />
+
+            <span className="text-sm font-semibold text-gray-700">
+              Sale products only
+            </span>
+          </label>
+        </div>
       </div>
     </div>
   );

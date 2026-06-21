@@ -22,11 +22,13 @@ export default async function UsersPage({ searchParams }: Props) {
   const session = await auth();
 
   if (!session?.user?.id) {
-    redirect("/login");
+    redirect("/login?callbackUrl=/admin/users");
   }
 
   const currentUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: {
+      id: session.user.id,
+    },
     select: {
       id: true,
       role: true,
@@ -75,7 +77,7 @@ export default async function UsersPage({ searchParams }: Props) {
     }),
   };
 
-  const [users, total] = await Promise.all([
+  const [users, total, totalCustomers, totalAdmins] = await Promise.all([
     prisma.user.findMany({
       where,
       select: {
@@ -103,10 +105,49 @@ export default async function UsersPage({ searchParams }: Props) {
     prisma.user.count({
       where,
     }),
+
+    prisma.user.count({
+      where: {
+        role: "CUSTOMER",
+      },
+    }),
+
+    prisma.user.count({
+      where: {
+        role: {
+          in: ["ADMIN", "SUPER_ADMIN"],
+        },
+      },
+    }),
   ]);
+
+  const userIds = users.map((user) => user.id);
+
+  const orderTotals =
+    userIds.length > 0
+      ? await prisma.order.groupBy({
+          by: ["userId"],
+          where: {
+            userId: {
+              in: userIds,
+            },
+          },
+          _sum: {
+            total: true,
+          },
+        })
+      : [];
+
+  const totalSpentByUserId = new Map(
+    orderTotals.map((item) => [
+      item.userId,
+      item._sum.total || 0,
+    ])
+  );
 
   const safeUsers = users.map((user) => ({
     ...user,
+    totalSpent: totalSpentByUserId.get(user.id) || 0,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   }));
@@ -121,6 +162,8 @@ export default async function UsersPage({ searchParams }: Props) {
       roleFilter={role || "all"}
       currentUserId={currentUser.id}
       currentUserRole={currentUser.role}
+      totalCustomers={totalCustomers}
+      totalAdmins={totalAdmins}
     />
   );
 }

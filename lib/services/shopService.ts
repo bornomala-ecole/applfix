@@ -1,0 +1,397 @@
+import "server-only";
+
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import {
+  BrandFilterOption,
+  FilterState,
+  ShopPagination,
+  ShopProduct,
+  SortOption,
+} from "@/lib/types/shop";
+
+type SearchParamsValue = string | string[] | undefined;
+
+export type ShopSearchParams = {
+  q?: SearchParamsValue;
+  brand?: SearchParamsValue;
+  min_price?: SearchParamsValue;
+  max_price?: SearchParamsValue;
+  on_sale?: SearchParamsValue;
+  sort?: SearchParamsValue;
+  page?: SearchParamsValue;
+};
+
+const DEFAULT_PRICE_RANGE: [number, number] = [0, 2000];
+const DEFAULT_PAGE_SIZE = 12;
+
+function getSingleParam(value: SearchParamsValue): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function getArrayParam(value: SearchParamsValue): string[] {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function toNumber(value: string | undefined, fallback: number) {
+  if (!value) return fallback;
+
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function toPositiveInteger(value: string | undefined, fallback: number) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 1) {
+    return fallback;
+  }
+
+  return Math.floor(number);
+}
+
+export function parseShopQuery(searchParams: ShopSearchParams): string {
+  return getSingleParam(searchParams.q)?.trim() ?? "";
+}
+
+export function parseShopSort(value: SearchParamsValue): SortOption {
+  const sort = getSingleParam(value);
+
+  const allowedSorts: SortOption[] = [
+    "featured",
+    "newest",
+    "price_asc",
+    "price_desc",
+  ];
+
+  return allowedSorts.includes(sort as SortOption)
+    ? (sort as SortOption)
+    : "featured";
+}
+
+export function parseShopPage(value: SearchParamsValue): number {
+  return toPositiveInteger(getSingleParam(value), 1);
+}
+
+export function parseShopFilters(
+  searchParams: ShopSearchParams,
+  priceBounds: [number, number] = DEFAULT_PRICE_RANGE
+): FilterState {
+  const minPrice = toNumber(getSingleParam(searchParams.min_price), priceBounds[0]);
+  const maxPrice = toNumber(getSingleParam(searchParams.max_price), priceBounds[1]);
+
+  return {
+    brands: getArrayParam(searchParams.brand),
+    priceRange: [
+      Math.max(priceBounds[0], minPrice),
+      Math.max(minPrice, maxPrice),
+    ],
+    onSale: getSingleParam(searchParams.on_sale) === "true",
+  };
+}
+
+function getProductBadge(product: {
+  isFeatured: boolean;
+  createdAt: Date;
+  variants: {
+    price: number;
+    comparePrice: number | null;
+    stock: number;
+  }[];
+}): ShopProduct["badge"] {
+  const variant = product.variants[0];
+
+  if (!variant || variant.stock <= 0) return "Out of Stock";
+
+  if (variant.comparePrice && variant.comparePrice > variant.price) {
+    return "Sale";
+  }
+
+  if (product.isFeatured) return "Featured";
+
+  const daysOld =
+    (Date.now() - product.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (daysOld <= 14) return "New";
+
+  return undefined;
+}
+
+export async function getShopFilterData(): Promise<{
+  brands: BrandFilterOption[];
+  priceBounds: [number, number];
+}> {
+  const [brands, priceAggregate] = await Promise.all([
+    prisma.brand.findMany({
+      where: {
+        products: {
+          some: {
+            isActive: true,
+            variants: {
+              some: {
+                isActive: true,
+              },
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            products: true,
+          },
+        },
+      },
+      orderBy: {
+        name: "asc",
+      },
+    }),
+
+    prisma.productVariant.aggregate({
+      where: {
+        isActive: true,
+        product: {
+          isActive: true,
+        },
+      },
+      _min: {
+        price: true,
+      },
+      _max: {
+        price: true,
+      },
+    }),
+  ]);
+
+  const minPrice = Math.floor(
+    priceAggregate._min.price ?? DEFAULT_PRICE_RANGE[0]
+  );
+
+  const maxPrice = Math.ceil(
+    priceAggregate._max.price ?? DEFAULT_PRICE_RANGE[1]
+  );
+
+  return {
+    brands: brands.map((brand) => ({
+      id: brand.id,
+      name: brand.name,
+      count: brand._count.products,
+    })),
+    priceBounds: [minPrice, maxPrice],
+  };
+}
+
+interface GetShopProductsArgs {
+  query: string;
+  filters: FilterState;
+  sort: SortOption;
+  page: number;
+  pageSize?: number;
+}
+
+export async function getShopProducts({
+  query,
+  filters,
+  sort,
+  page,
+  pageSize = DEFAULT_PAGE_SIZE,
+}: GetShopProductsArgs): Promise<{
+  products: ShopProduct[];
+  pagination: ShopPagination;
+}> {
+  const variantWhere: Prisma.ProductVariantWhereInput = {
+    isActive: true,
+    price: {
+      gte: filters.priceRange[0],
+      lte: filters.priceRange[1],
+    },
+  };
+
+  if (filters.onSale) {
+    variantWhere.comparePrice = {
+      not: null,
+    };
+  }
+
+  const where: Prisma.ProductWhereInput = {
+    isActive: true,
+    variants: {
+      some: variantWhere,
+    },
+  };
+
+  if (query) {
+    where.OR = [
+      {
+        name: {
+          contains: query,
+          mode: "insensitive",
+        },
+      },
+      {
+        shortDescription: {
+          contains: query,
+          mode: "insensitive",
+        },
+      },
+      {
+        description: {
+          contains: query,
+          mode: "insensitive",
+        },
+      },
+      {
+        brand: {
+          is: {
+            name: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+      {
+        category: {
+          is: {
+            name: {
+              contains: query,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+    ];
+  }
+
+  if (filters.brands.length > 0) {
+    where.brand = {
+      is: {
+        name: {
+          in: filters.brands,
+        },
+      },
+    };
+  }
+
+  const productsFromDb = await prisma.product.findMany({
+    where,
+    include: {
+      brand: {
+        select: {
+          name: true,
+        },
+      },
+      category: {
+        select: {
+          name: true,
+        },
+      },
+      images: {
+        select: {
+          url: true,
+          alt: true,
+          type: true,
+          sortOrder: true,
+        },
+        orderBy: {
+          sortOrder: "asc",
+        },
+      },
+      variants: {
+        where: variantWhere,
+        select: {
+          id: true,
+          title: true,
+          color: true,
+          price: true,
+          comparePrice: true,
+          stock: true,
+        },
+        orderBy: {
+          price: "asc",
+        },
+      },
+    },
+    orderBy:
+      sort === "newest"
+        ? {
+            createdAt: "desc",
+          }
+        : [
+            {
+              isFeatured: "desc",
+            },
+            {
+              createdAt: "desc",
+            },
+          ],
+  });
+
+  let mappedProducts = productsFromDb
+    .map((product) => {
+      const variant = product.variants[0];
+
+      if (!variant) return null;
+
+      const mainImage =
+        product.images.find((image) => image.type === "main") ??
+        product.images[0];
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+
+        brand: product.brand?.name ?? "Unbranded",
+        category: product.category?.name ?? null,
+
+        image: mainImage?.url ?? "/product-placeholder.png",
+        imageAlt: mainImage?.alt ?? product.name,
+
+        price: variant.price,
+        originalPrice: variant.comparePrice,
+
+        variantId: variant.id,
+        variantTitle: variant.color
+          ? `${variant.title} / ${variant.color}`
+          : variant.title,
+        color: variant.color,
+        stock: variant.stock,
+
+        shortDescription: product.shortDescription,
+
+        badge: getProductBadge(product),
+      };
+    })
+    .filter(Boolean) as ShopProduct[];
+
+  if (sort === "price_asc") {
+    mappedProducts = mappedProducts.sort((a, b) => a.price - b.price);
+  }
+
+  if (sort === "price_desc") {
+    mappedProducts = mappedProducts.sort((a, b) => b.price - a.price);
+  }
+
+  const totalProducts = mappedProducts.length;
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+
+  const start = (safePage - 1) * pageSize;
+  const paginatedProducts = mappedProducts.slice(start, start + pageSize);
+
+  return {
+    products: paginatedProducts,
+    pagination: {
+      currentPage: safePage,
+      pageSize,
+      totalProducts,
+      totalPages,
+    },
+  };
+}

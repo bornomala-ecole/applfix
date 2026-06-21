@@ -3,6 +3,15 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
+  CalendarDays,
+  Eye,
+  Search,
+  ShieldCheck,
+  ShoppingBag,
+  UserRound,
+  Users,
+} from "lucide-react";
+import {
   usePathname,
   useRouter,
   useSearchParams,
@@ -16,6 +25,7 @@ type AdminUser = {
   email: string | null;
   image: string | null;
   role: UserRole;
+  totalSpent: number;
   createdAt: string;
   updatedAt: string;
   _count: {
@@ -25,25 +35,31 @@ type AdminUser = {
 };
 
 type Props = {
-  users: AdminUser[];
-  page: number;
-  total: number;
-  limit: number;
-  search: string;
-  roleFilter: UserRole | "all";
+  users?: AdminUser[];
+  page?: number;
+  total?: number;
+  limit?: number;
+  search?: string;
+  roleFilter?: UserRole | "all";
   currentUserId: string;
   currentUserRole: UserRole;
+  totalCustomers?: number;
+  totalAdmins?: number;
 };
 
+const FRANCE_TIME_ZONE = "Europe/Paris";
+
 export default function UsersClient({
-  users,
-  page,
-  total,
-  limit,
-  search,
-  roleFilter,
+  users = [],
+  page = 1,
+  total = 0,
+  limit = 20,
+  search = "",
+  roleFilter = "all",
   currentUserId,
   currentUserRole,
+  totalCustomers = 0,
+  totalAdmins = 0,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -52,7 +68,10 @@ export default function UsersClient({
   const [searchValue, setSearchValue] = useState(search);
   const [isPending, startTransition] = useTransition();
 
-  const totalPages = Math.ceil(total / limit);
+  const safeUsers = Array.isArray(users) ? users : [];
+  const safeTotal = Number.isFinite(total) ? total : 0;
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 20;
+  const totalPages = Math.ceil(safeTotal / safeLimit);
 
   function updateQuery(paramsToUpdate: {
     search?: string;
@@ -86,13 +105,14 @@ export default function UsersClient({
     }
 
     startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
+      const queryString = params.toString();
+      router.push(queryString ? `${pathname}?${queryString}` : pathname);
     });
   }
 
   function clearFilters() {
     setSearchValue("");
-  
+
     startTransition(() => {
       router.push(pathname);
     });
@@ -132,48 +152,134 @@ export default function UsersClient({
       .replace(/\b\w/g, (char) => char.toUpperCase());
   }
 
-  function formatDate(date: string) {
-    return new Intl.DateTimeFormat("en-US", {
+  function formatFranceDate(date: string) {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: FRANCE_TIME_ZONE,
+      day: "2-digit",
       month: "short",
-      day: "numeric",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZoneName: "short",
     }).format(new Date(date));
   }
 
+  function formatPrice(amount: number) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount || 0);
+  }
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
+          <p className="text-sm font-medium text-primaryRed">
+            Admin Dashboard
+          </p>
+
           <h1 className="text-3xl font-bold text-gray-900">
             Users
           </h1>
 
-          <p className="text-sm text-gray-500">
-            Total Users:{" "}
-            <span className="font-semibold">{total}</span>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage customers, admins, managers, and account activity.
           </p>
         </div>
       </div>
 
+      {/* STATS */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Users</p>
+              <h2 className="mt-2 text-2xl font-bold text-gray-900">
+                {safeTotal}
+              </h2>
+            </div>
+
+            <div className="rounded-xl bg-gray-100 p-3 text-gray-700">
+              <Users size={22} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Customers</p>
+              <h2 className="mt-2 text-2xl font-bold text-gray-900">
+                {totalCustomers}
+              </h2>
+            </div>
+
+            <div className="rounded-xl bg-green-50 p-3 text-green-600">
+              <UserRound size={22} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Admins</p>
+              <h2 className="mt-2 text-2xl font-bold text-gray-900">
+                {totalAdmins}
+              </h2>
+            </div>
+
+            <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
+              <ShieldCheck size={22} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Showing</p>
+              <h2 className="mt-2 text-2xl font-bold text-gray-900">
+                {safeUsers.length}
+              </h2>
+            </div>
+
+            <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
+              <Search size={22} />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* FILTERS */}
-      <div className="bg-white p-4 rounded-lg border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="mb-6 rounded-2xl border bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <Search size={18} className="text-gray-500" />
+
+          <h2 className="font-semibold text-gray-900">
+            Search & Filter Users
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
           <form
             onSubmit={handleSearchSubmit}
-            className="md:col-span-2 flex gap-2"
+            className="flex gap-2 lg:col-span-2"
           >
             <input
               type="text"
               placeholder="Search users by name or email..."
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              className="border p-2 rounded w-full"
+              className="w-full rounded-xl border p-3 text-sm outline-none focus:border-black"
             />
 
             <button
               type="submit"
-              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
+              className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             >
               Search
             </button>
@@ -186,7 +292,7 @@ export default function UsersClient({
                 role: e.target.value,
               })
             }
-            className="border p-2 rounded"
+            className="rounded-xl border p-3 text-sm outline-none focus:border-black"
           >
             <option value="all">All Roles</option>
             <option value="CUSTOMER">Customers</option>
@@ -198,135 +304,154 @@ export default function UsersClient({
           <button
             type="button"
             onClick={clearFilters}
-            className="border px-4 py-2 rounded bg-gray-100 hover:bg-gray-200 text-sm font-medium"
+            className="rounded-xl border bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             Clear Filters
           </button>
-
-
-
-
         </div>
 
-
-
         {isPending && (
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="mt-3 text-xs text-gray-400">
             Loading users...
           </p>
         )}
       </div>
 
       {/* LIST */}
-      <div className="space-y-3">
-        {users.length === 0 && (
-          <div className="bg-white border rounded-xl p-6 text-center text-gray-500">
-            No users found.
+      <div className="space-y-4">
+        {safeUsers.length === 0 && (
+          <div className="rounded-2xl border bg-white p-10 text-center shadow-sm">
+            <Users className="mx-auto mb-3 text-gray-400" size={34} />
+
+            <h3 className="font-semibold text-gray-900">
+              No users found
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Try changing your search or filter.
+            </p>
           </div>
         )}
 
-        {users.map((user) => {
+        {safeUsers.map((user) => {
           const isCurrentUser = user.id === currentUserId;
+          const providerLabel =
+            user._count.accounts > 0 ? "OAuth User" : "Credentials User";
 
           return (
             <div
               key={user.id}
-              className="bg-white border rounded-xl p-4 flex items-center justify-between hover:shadow-sm transition"
+              className="rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md"
             >
-              {/* LEFT */}
-              <div className="flex items-center gap-4">
-                {user.image ? (
-                  <img
-                    src={user.image}
-                    alt={user.name || "User"}
-                    className="w-12 h-12 rounded-full object-cover border"
-                  />
-                ) : (
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-500">
-                    {user.name?.charAt(0)?.toUpperCase() ||
-                      user.email?.charAt(0)?.toUpperCase() ||
-                      "U"}
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-center">
+                {/* USER */}
+                <div className="lg:col-span-4">
+                  <div className="flex items-center gap-4">
+                    {user.image ? (
+                      <img
+                        src={user.image}
+                        alt={user.name || "User"}
+                        className="h-12 w-12 rounded-full border object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-500">
+                        {user.name?.charAt(0)?.toUpperCase() ||
+                          user.email?.charAt(0)?.toUpperCase() ||
+                          "U"}
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="font-semibold text-gray-900">
+                          {user.name || "No Name"}
+                        </h2>
+
+                        {isCurrentUser && (
+                          <span className="rounded-full bg-black px-2 py-0.5 text-[11px] text-white">
+                            You
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-0.5 text-sm text-gray-500">
+                        {user.email || "No email"}
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        <span
+                          className={`rounded-full px-2.5 py-1 font-medium ${getRoleBadge(
+                            user.role
+                          )}`}
+                        >
+                          {formatRole(user.role)}
+                        </span>
+
+                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-600">
+                          {providerLabel}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
 
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-gray-900">
-                      {user.name || "No Name"}
-                    </h2>
+                {/* ORDERS */}
+                <div className="lg:col-span-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <ShoppingBag size={16} />
+                    Orders
+                  </div>
 
-                    {isCurrentUser && (
-                      <span className="text-[11px] px-2 py-0.5 bg-gray-900 text-white rounded-full">
-                        You
-                      </span>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {user._count.orders}
+                  </p>
+                </div>
+
+                {/* SPENT */}
+                <div className="lg:col-span-2">
+                  <p className="text-sm text-gray-500">Total Spent</p>
+
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {formatPrice(user.totalSpent)}
+                  </p>
+                </div>
+
+                {/* DATES */}
+                <div className="lg:col-span-3">
+                  <div className="space-y-1 text-xs text-gray-500">
+                    <p className="flex items-center gap-1.5">
+                      <CalendarDays size={13} />
+                      Joined: {formatFranceDate(user.createdAt)}
+                    </p>
+
+                    <p className="flex items-center gap-1.5">
+                      <CalendarDays size={13} />
+                      Updated: {formatFranceDate(user.updatedAt)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ACTIONS */}
+                <div className="lg:col-span-1 lg:text-right">
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <Link
+                      href={`/admin/users/${user.id}`}
+                      className="inline-flex items-center gap-1 rounded-xl bg-black px-3 py-2 text-xs font-medium text-white hover:bg-gray-800"
+                    >
+                      <Eye size={14} />
+                      View
+                    </Link>
+
+                    {currentUserRole === "SUPER_ADMIN" && (
+                      <Link
+                        href={`/admin/users/edit/${user.id}`}
+                        className="rounded-xl border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Role
+                      </Link>
                     )}
                   </div>
-
-                  <p className="text-sm text-gray-500">
-                    {user.email || "No email"}
-                  </p>
-
-                  <div className="flex gap-2 mt-1 flex-wrap text-xs">
-                    <span
-                      className={`px-2 py-0.5 rounded ${getRoleBadge(
-                        user.role
-                      )}`}
-                    >
-                      {formatRole(user.role)}
-                    </span>
-
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                      {user._count.orders} orders
-                    </span>
-
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                      {user._count.accounts > 0
-                        ? "OAuth User"
-                        : "Credentials User"}
-                    </span>
-                  </div>
                 </div>
-              </div>
-
-              {/* MIDDLE */}
-              <div className="hidden md:block text-sm text-gray-600 text-center">
-                <div className="font-semibold text-gray-900">
-                  Joined
-                </div>
-
-                <div className="text-xs text-gray-400">
-                  {formatDate(user.createdAt)}
-                </div>
-              </div>
-
-              {/* RIGHT */}
-              <div className="hidden lg:block text-right text-sm">
-                <div className="font-semibold">
-                  Updated
-                </div>
-
-                <div className="text-xs text-gray-400">
-                  {formatDate(user.updatedAt)}
-                </div>
-              </div>
-
-              {/* ACTIONS */}
-              <div className="flex gap-2 ml-6">
-                <Link
-                  href={`/admin/users/${user.id}`}
-                  className="px-3 py-1 text-xs bg-gray-800 text-white rounded hover:bg-gray-700"
-                >
-                  View
-                </Link>
-
-                {currentUserRole === "SUPER_ADMIN" && (
-                  <Link
-                    href={`/admin/users/edit/${user.id}`}
-                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-500"
-                  >
-                    Edit Role
-                  </Link>
-                )}
               </div>
             </div>
           );
@@ -335,15 +460,16 @@ export default function UsersClient({
 
       {/* PAGINATION */}
       {totalPages > 1 && (
-        <div className="flex gap-2 mt-8 justify-center flex-wrap">
+        <div className="mt-8 flex flex-wrap justify-center gap-2">
           {Array.from({ length: totalPages }, (_, i) => (
             <button
               key={i}
+              type="button"
               onClick={() => changePage(i + 1)}
-              className={`px-3 py-1 rounded border text-sm ${
+              className={`rounded-lg border px-3 py-1 text-sm ${
                 page === i + 1
                   ? "bg-black text-white"
-                  : "bg-white"
+                  : "bg-white hover:bg-gray-50"
               }`}
             >
               {i + 1}

@@ -1,112 +1,98 @@
-"use client";
+import ShopClient from "@/components/shop/ShopClient";
+import {
+  getShopFilterData,
+  getShopProducts,
+  parseShopFilters,
+  parseShopPage,
+  parseShopQuery,
+  parseShopSort,
+  ShopSearchParams,
+} from "@/lib/services/shopService";
 
-import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import FiltersSidebar from "@/components/shop/FilterSidebar";
-import SortBar from "@/components/shop/SortBar";
-import ProductView from "@/components/shop/ProductView"; // Renamed import
-import { allProducts } from "@/lib/products";
-import { FilterState, SortOption } from "@/lib/types/shop";
+export const dynamic = "force-dynamic";
 
-// Helper functions remain the same...
-const getInitialFilters = (searchParams: URLSearchParams): FilterState => {
-  const brands = searchParams.getAll("brand");
-  const minPrice = Number(searchParams.get("min_price")) || 0;
-  const maxPrice = Number(searchParams.get("max_price")) || 2000;
-  const onSale = searchParams.get("on_sale") === "true";
-  return { brands, priceRange: [minPrice, maxPrice], onSale };
+type ShopPageProps = {
+  searchParams: Promise<ShopSearchParams>;
 };
 
-const getInitialSort = (searchParams: URLSearchParams): SortOption => {
-  return (searchParams.get("sort") as SortOption) || "featured";
-};
+export default async function ShopPage({ searchParams }: ShopPageProps) {
+  const resolvedSearchParams = await searchParams;
 
-export default function ShopPage() {
-  const searchParams = useSearchParams();
+  const filterData = await getShopFilterData();
 
-  // State for filters, sorting, and VIEW MODE
-  const [filters, setFilters] = useState<FilterState>(() => getInitialFilters(searchParams));
-  const [sort, setSort] = useState<SortOption>(() => getInitialSort(searchParams));
-  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
-    // Try to get view mode from localStorage, default to 'grid'
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("viewMode") as "grid" | "list") || "grid";
-    }
-    return "grid";
+  const query = parseShopQuery(resolvedSearchParams);
+  const filters = parseShopFilters(
+    resolvedSearchParams,
+    filterData.priceBounds
+  );
+  const sort = parseShopSort(resolvedSearchParams.sort);
+  const page = parseShopPage(resolvedSearchParams.page);
+
+  const { products, pagination } = await getShopProducts({
+    query,
+    filters,
+    sort,
+    page,
+    pageSize: 12,
   });
 
-  // Sync state with URL (filters and sort)
-  useEffect(() => {
-    const params = new URLSearchParams();
-    filters.brands.forEach((brand) => params.append("brand", brand));
-    if (filters.priceRange[0] > 0) params.set("min_price", filters.priceRange[0].toString());
-    if (filters.priceRange[1] < 2000) params.set("max_price", filters.priceRange[1].toString());
-    if (filters.onSale) params.set("on_sale", "true");
-    if (sort !== "featured") params.set("sort", sort);
-
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState({}, "", newUrl);
-  }, [filters, sort]);
-
-  // Save view mode to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("viewMode", viewMode);
-    }
-  }, [viewMode]);
-
-  // Memoize filtered and sorted products (logic remains the same)
-  const filteredAndSortedProducts = useMemo(() => {
-    let result = [...allProducts];
-    if (filters.brands.length > 0) {
-      result = result.filter((p) => filters.brands.includes(p.brand));
-    }
-    result = result.filter((p) => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]);
-    if (filters.onSale) {
-      result = result.filter((p) => !!p.originalPrice);
-    }
-    switch (sort) {
-      case "newest":
-        result.sort((a, b) => b.id - a.id);
-        break;
-      case "price_asc":
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case "price_desc":
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case "rating_desc":
-        result.sort((a, b) => b.rating - a.rating);
-        break;
-    }
-    return result;
-  }, [filters, sort]);
-
   return (
-    <div className="container py-8">
-      <h1 className="mb-8 text-3xl font-bold">Shop All Phones</h1>
-      
-      <div className="flex flex-col gap-8 lg:flex-row">
-        {/* Filters Sidebar */}
-        <aside className="hidden w-full max-w-xs shrink-0 lg:block">
-          <FiltersSidebar filters={filters} onFiltersChange={setFilters} />
-        </aside>
+    <>
+      <div className="bg-gray-50">
+        <div className="container py-8 sm:py-10">
 
-        {/* Main Content */}
-        <main className="flex-1">
-          <SortBar
-            currentSort={sort}
-            onSortChange={setSort}
-            totalResults={filteredAndSortedProducts.length}
-            viewMode={viewMode} // Pass viewMode
-            onViewModeChange={setViewMode} // Pass handler
+          <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+            <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-primaryRed">
+              Smartphone Collection
+            </p>
+
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
+                  Shop All Phones
+                </h1>
+
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
+                  Explore real products from your store, filter by brand, search
+                  by model, compare prices, and find the right phone faster.
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-gray-50 px-5 py-4 text-sm text-gray-600">
+                <span className="font-semibold text-gray-950">
+                  {pagination.totalProducts}
+                </span>{" "}
+                products found
+              </div>
+            </div>
+          </div>
+
+          <ShopClient
+            query={query}
+            products={products}
+            pagination={pagination}
+            availableBrands={filterData.brands}
+            priceBounds={filterData.priceBounds}
+            initialFilters={filters}
+            initialSort={sort}
           />
-          <ProductView
-            products={filteredAndSortedProducts}
-            viewMode={viewMode} // Pass viewMode
-          />
-        </main>
+
+
+
+
+
+        </div>
       </div>
-    </div>
+
+      {/* <div className="grid grid-cols-4 gap-4">
+        <div className="bg-green-500">1</div>
+        <div
+          className="bg-red-500 col-span-3"
+        >
+          2
+        </div>
+      </div> */}
+    </>
+    
   );
 }
