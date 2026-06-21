@@ -1,6 +1,11 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
 import { NextRequest, NextResponse } from "next/server";
+
+function toStripeAmount(amount: number) {
+  return Math.round(amount * 100);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,8 +29,7 @@ export async function POST(req: NextRequest) {
     const shippingPostcode = String(body.shippingPostcode || "").trim();
     const shippingCountry = String(body.shippingCountry || "").trim();
     const notes = String(body.notes || "").trim();
-
-    const paymentMethod = body.paymentMethod || "cod";
+    const paymentMethod = String(body.paymentMethod || "cod");
 
     if (
       !shippingFullName ||
@@ -40,27 +44,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (paymentMethod !== "cod") {
+    if (!["cod", "stripe"].includes(paymentMethod)) {
       return NextResponse.json(
-        { message: "Only Cash on Delivery is available right now" },
+        { message: "Invalid payment method" },
         { status: 400 }
       );
     }
 
-    const order = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const cart = await tx.cart.findUnique({
-        where: {
-          userId: session.user.id,
-        },
+        where: { userId: session.user.id },
         include: {
           items: {
             include: {
               product: {
                 include: {
                   images: {
-                    where: {
-                      type: "main",
-                    },
+                    where: { type: "main" },
                     take: 1,
                   },
                 },
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       const discount = 0;
       const total = subtotal + shippingFee + tax - discount;
 
-      const createdOrder = await tx.order.create({
+      const order = await tx.order.create({
         data: {
           userId: session.user.id,
 
@@ -112,8 +112,8 @@ export async function POST(req: NextRequest) {
           total,
 
           status: "pending",
-          paymentMethod: "cod",
-          paymentStatus: "unpaid",
+          paymentMethod,
+          paymentStatus: paymentMethod === "cod" ? "unpaid" : "pending",
 
           shippingFullName,
           shippingPhone,
@@ -130,11 +130,9 @@ export async function POST(req: NextRequest) {
             create: cart.items.map((item) => ({
               productId: item.productId,
               variantId: item.variantId,
-
               name: item.product.name,
               price: item.variant.price,
               quantity: item.quantity,
-
               sku: item.variant.sku,
               variantTitle: item.variant.title,
               color: item.variant.color,
@@ -142,42 +140,79 @@ export async function POST(req: NextRequest) {
             })),
           },
         },
-      });
-
-      for (const item of cart.items) {
-        const updatedVariant = await tx.productVariant.updateMany({
-          where: {
-            id: item.variantId,
-            stock: {
-              gte: item.quantity,
-            },
-          },
-          data: {
-            stock: {
-              decrement: item.quantity,
-            },
-          },
-        });
-
-        if (updatedVariant.count === 0) {
-          throw new Error(
-            `Not enough stock available for ${item.product.name}`
-          );
-        }
-      }
-
-      await tx.cartItem.deleteMany({
-        where: {
-          cartId: cart.id,
+        include: {
+          items: true,
         },
       });
 
-      return createdOrder;
+      if (paymentMethod === "cod") {
+        for (const item of cart.items) {
+          const updatedVariant = await tx.productVariant.updateMany({
+            where: {
+              id: item.variantId,
+              stock: { gte: item.quantity },
+            },
+            data: {
+              stock: { decrement: item.quantity },
+            },
+          });
+
+          if (updatedVariant.count === 0) {
+            throw new Error(`Not enough stock available for ${item.product.name}`);
+          }
+        }
+
+        await tx.cartItem.deleteMany({
+          where: { cartId: cart.id },
+        });
+      }
+
+      return { order, cart };
     });
+
+    if (paymentMethod === "stripe") {
+      const stripeSession = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        customer_email: session.user.email || undefined,
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?orderId=${result.order.id}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout?canceled=true`,
+        metadata: {
+          orderId: result.order.id,
+          userId: session.user.id,
+        },
+        line_items: result.order.items.map((item) => ({
+          quantity: item.quantity,
+          price_data: {
+            currency: "usd",
+            unit_amount: toStripeAmount(item.price),
+            product_data: {
+              name: item.variantTitle
+                ? `${item.name} - ${item.variantTitle}`
+                : item.name,
+              images: item.imageUrl ? [item.imageUrl] : undefined,
+            },
+          },
+        })),
+      });
+
+      await prisma.order.update({
+        where: { id: result.order.id },
+        data: {
+          stripeCheckoutSessionId: stripeSession.id,
+        },
+      });
+
+      return NextResponse.json({
+        message: "Redirecting to Stripe",
+        orderId: result.order.id,
+        url: stripeSession.url,
+      });
+    }
 
     return NextResponse.json({
       message: "Order placed successfully",
-      orderId: order.id,
+      orderId: result.order.id,
     });
   } catch (error) {
     console.error("CHECKOUT_ERROR", error);
@@ -185,11 +220,6 @@ export async function POST(req: NextRequest) {
     const message =
       error instanceof Error ? error.message : "Failed to place order";
 
-    return NextResponse.json(
-      {
-        message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

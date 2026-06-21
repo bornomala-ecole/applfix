@@ -175,11 +175,19 @@ export default function CheckoutClient({
       return;
     }
 
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    
     window.dispatchEvent(new Event("cart-updated"));
-
+    
     toast.success("Order placed successfully");
-
+    
     router.push(`/checkout/success?orderId=${data.orderId}`);
+
+
+
   }
 
   // If guest cart syncs after login, refresh checkout data.
@@ -440,6 +448,36 @@ export default function CheckoutClient({
                   type="radio"
                   value="cod"
                   checked={paymentMethod === "cod"}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                />
+
+                <div>
+                  <p className="font-semibold text-gray-900">Cash on Delivery</p>
+                  <p className="text-sm text-gray-500">Pay when your order is delivered.</p>
+                </div>
+              </label>
+
+              <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border p-4">
+                <input
+                  type="radio"
+                  value="stripe"
+                  checked={paymentMethod === "stripe"}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                />
+
+                <div>
+                  <p className="font-semibold text-gray-900">Card Payment</p>
+                  <p className="text-sm text-gray-500">Pay securely with Stripe.</p>
+                </div>
+              </label>
+
+
+
+              {/* <label className="flex cursor-pointer items-center gap-3 rounded-xl border p-4">
+                <input
+                  type="radio"
+                  value="cod"
+                  checked={paymentMethod === "cod"}
                   onChange={(e) =>
                     setPaymentMethod(e.target.value)
                   }
@@ -454,7 +492,7 @@ export default function CheckoutClient({
                     Pay when your order is delivered.
                   </p>
                 </div>
-              </label>
+              </label> */}
 
               <div className="mt-4">
                 <label className="mb-1 block text-sm font-medium text-gray-700">

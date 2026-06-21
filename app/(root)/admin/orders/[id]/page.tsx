@@ -239,6 +239,27 @@ export default async function AdminOrderDetailsPage({ params }: Props) {
                 {order.status}
               </span>
             </div>
+
+            {order.stripePaymentIntentId && (
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Stripe Payment ID</span>
+                <span className="break-all text-right font-medium text-gray-900">
+                  {order.stripePaymentIntentId}
+                </span>
+              </div>
+            )}
+
+            {order.stripeCheckoutSessionId && (
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Stripe Session ID</span>
+                <span className="break-all text-right font-medium text-gray-900">
+                  {order.stripeCheckoutSessionId}
+                </span>
+              </div>
+            )}
+
+
+
           </div>
         </div>
       </div>

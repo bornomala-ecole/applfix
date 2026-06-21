@@ -282,6 +282,9 @@ model Order {
   paymentMethod String @default("cod")
   paymentStatus String @default("unpaid")
 
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String?
+
   shippingFullName String?
   shippingPhone    String?
   shippingAddress1 String?
@@ -303,6 +306,8 @@ model Order {
   @@index([paymentStatus])
   @@index([paymentMethod])
   @@index([createdAt])
+  @@index([stripeCheckoutSessionId])
+  @@index([stripePaymentIntentId])
 }
 
 //
