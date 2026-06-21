@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
+import CheckoutSuccessClient from "./checkout-success-client";
 
 type Props = {
   searchParams: Promise<{
@@ -14,6 +15,7 @@ export default async function CheckoutSuccessPage({
 
   return (
     <main className="min-h-screen bg-gray-50 py-12">
+      <CheckoutSuccessClient />
       <div className="container">
         <div className="mx-auto max-w-xl rounded-2xl border bg-white p-8 text-center shadow-sm">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600">
