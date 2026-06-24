@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 
 type MenuProduct = {
   id: string;
@@ -29,10 +29,12 @@ type Props = {
 };
 
 export default function BrandSeriesMenuClient({ brands }: Props) {
-  const [activeBrandId, setActiveBrandId] = useState(brands[0]?.id || "");
+  const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
 
   const activeBrand = useMemo(() => {
-    return brands.find((brand) => brand.id === activeBrandId) || brands[0];
+    if (!activeBrandId) return null;
+
+    return brands.find((brand) => brand.id === activeBrandId) || null;
   }, [activeBrandId, brands]);
 
   const groups = useMemo(() => {
@@ -55,27 +57,33 @@ export default function BrandSeriesMenuClient({ brands }: Props) {
     return seriesGroups;
   }, [activeBrand]);
 
-  if (!activeBrand) {
-    return null;
+  function handleBrandClick(brandId: string) {
+    setActiveBrandId((current) => {
+      if (current === brandId) {
+        return null;
+      }
+
+      return brandId;
+    });
   }
 
   return (
-    <section className="relative bg-[#09c9c0]">
-      <div className="container">
-        {/* BRAND TABS */}
+    <section className="relative z-50 bg-primaryRed ">
+      <div className="container relative">
+        {/* BRAND MENU ITEMS ONLY */}
         <div className="flex items-center gap-2 overflow-x-auto py-3">
           {brands.map((brand) => {
-            const isActive = brand.id === activeBrand.id;
-
+            const isActive = brand.id === activeBrandId;
+  
             return (
               <button
                 key={brand.id}
                 type="button"
-                onClick={() => setActiveBrandId(brand.id)}
+                onClick={() => handleBrandClick(brand.id)}
                 className={`shrink-0 rounded-lg px-5 py-2 text-sm font-semibold uppercase tracking-wide transition ${
                   isActive
-                    ? "bg-white text-[#09bdb5] shadow-sm"
-                    : "text-black hover:bg-white/30"
+                    ? "bg-white text-primaryRed shadow-sm"
+                    : "text-white hover:bg-white/30"
                 }`}
               >
                 {brand.name}
@@ -83,61 +91,75 @@ export default function BrandSeriesMenuClient({ brands }: Props) {
             );
           })}
         </div>
-
-        {/* MEGA MENU BODY */}
-        <div className="rounded-t-3xl bg-white p-5 shadow-xl md:p-7">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {activeBrand.name} Models
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Browse {activeBrand.name} products by series.
-              </p>
-            </div>
-
-            <Link
-              href={`/shop?brand=${encodeURIComponent(activeBrand.name)}`}
-              className="hidden items-center gap-1 text-sm font-semibold text-[#09bdb5] hover:underline sm:inline-flex"
-            >
-              View All
-              <ChevronRight size={16} />
-            </Link>
-          </div>
-
-          {groups.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              {groups.map((group) => (
-                <div
-                  key={group.id}
-                  className="border-r border-gray-100 last:border-r-0"
+  
+        {/* OVERLAPPING SUB MENU */}
+        {activeBrand && (
+          <div className="absolute left-0 top-full z-50 w-full rounded-b-3xl bg-white p-5 shadow-2xl md:p-7">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {activeBrand.name} Models
+                </h2>
+  
+                <p className="mt-1 text-sm text-gray-500">
+                  Browse {activeBrand.name} products by series.
+                </p>
+              </div>
+  
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/shop?brand=${encodeURIComponent(activeBrand.name)}`}
+                  className="hidden items-center gap-1 text-sm font-semibold text-[#09bdb5] hover:underline sm:inline-flex"
                 >
-                  <div className="mb-4 inline-flex rounded-full bg-gray-100 px-4 py-2 text-sm font-bold uppercase tracking-wide text-gray-900">
-                    {group.name}
-                  </div>
-
-                  <div className="max-h-[380px] space-y-1 overflow-y-auto pr-3">
-                    {group.products.map((product) => (
-                      <Link
-                        key={product.id}
-                        href={`/product/${product.slug}`}
-                        className="block rounded-lg px-3 py-2 text-sm font-semibold uppercase tracking-wide text-gray-500 transition hover:bg-gray-50 hover:text-[#09bdb5]"
-                      >
-                        {product.name}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                  View All
+                  <ChevronRight size={16} />
+                </Link>
+  
+                <button
+                  type="button"
+                  onClick={() => setActiveBrandId(null)}
+                  className="rounded-full border p-2 text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
+                  aria-label="Close menu"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed p-8 text-center">
-              <p className="text-sm text-gray-500">
-                No active products found for this brand.
-              </p>
-            </div>
-          )}
-        </div>
+  
+            {groups.length > 0 ? (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {groups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="border-r border-gray-100 last:border-r-0"
+                  >
+                    <div className="mb-4 inline-flex rounded-full bg-gray-100 px-4 py-2 text-sm font-bold uppercase tracking-wide text-gray-900">
+                      {group.name}
+                    </div>
+  
+                    <div className="max-h-[380px] space-y-1 overflow-y-auto pr-3">
+                      {group.products.map((product) => (
+                        <Link
+                          key={product.id}
+                          href={`/product/${product.slug}`}
+                          className="block rounded-lg px-3 py-2 text-sm font-semibold uppercase tracking-wide text-gray-500 transition hover:bg-gray-50 hover:text-[#09bdb5]"
+                        >
+                          {product.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed p-8 text-center">
+                <p className="text-sm text-gray-500">
+                  No active products found for this brand.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

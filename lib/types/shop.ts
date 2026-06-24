@@ -58,6 +58,7 @@ export interface FilterState {
   brands: string[];
   priceRange: [number, number];
   onSale: boolean;
+  categories: string[];
 }
 
 export interface BrandFilterOption {
@@ -65,6 +66,12 @@ export interface BrandFilterOption {
   name: string;
   count: number;
 }
+
+export type CategoryFilterOption = {
+  id: string;
+  name: string;
+  count: number;
+};
 
 export interface ShopProduct {
   id: string;

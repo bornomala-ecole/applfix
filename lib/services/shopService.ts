@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   BrandFilterOption,
+  CategoryFilterOption,
   FilterState,
   ShopPagination,
   ShopProduct,
@@ -15,6 +16,7 @@ type SearchParamsValue = string | string[] | undefined;
 export type ShopSearchParams = {
   q?: SearchParamsValue;
   brand?: SearchParamsValue;
+  category?: SearchParamsValue;
   min_price?: SearchParamsValue;
   max_price?: SearchParamsValue;
   on_sale?: SearchParamsValue;
@@ -80,11 +82,19 @@ export function parseShopFilters(
   searchParams: ShopSearchParams,
   priceBounds: [number, number] = DEFAULT_PRICE_RANGE
 ): FilterState {
-  const minPrice = toNumber(getSingleParam(searchParams.min_price), priceBounds[0]);
-  const maxPrice = toNumber(getSingleParam(searchParams.max_price), priceBounds[1]);
+  const minPrice = toNumber(
+    getSingleParam(searchParams.min_price),
+    priceBounds[0]
+  );
+
+  const maxPrice = toNumber(
+    getSingleParam(searchParams.max_price),
+    priceBounds[1]
+  );
 
   return {
     brands: getArrayParam(searchParams.brand),
+    categories: getArrayParam(searchParams.category),
     priceRange: [
       Math.max(priceBounds[0], minPrice),
       Math.max(minPrice, maxPrice),
@@ -191,9 +201,16 @@ export async function getShopFilterData(): Promise<{
 
 export async function getShopFilterData(): Promise<{
   brands: BrandFilterOption[];
+  categories: CategoryFilterOption[];
   priceBounds: [number, number];
 }> {
-  const [brands, brandCounts, priceAggregate] = await Promise.all([
+  const [
+    brands,
+    brandCounts,
+    categories,
+    categoryCounts,
+    priceAggregate,
+  ] = await Promise.all([
     prisma.brand.findMany({
       select: {
         id: true,
@@ -209,6 +226,34 @@ export async function getShopFilterData(): Promise<{
       where: {
         isActive: true,
         brandId: {
+          not: null,
+        },
+        variants: {
+          some: {
+            isActive: true,
+          },
+        },
+      },
+      _count: {
+        _all: true,
+      },
+    }),
+
+    prisma.category.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    }),
+
+    prisma.product.groupBy({
+      by: ["categoryId"],
+      where: {
+        isActive: true,
+        categoryId: {
           not: null,
         },
         variants: {
@@ -241,7 +286,18 @@ export async function getShopFilterData(): Promise<{
   const brandCountMap = brandCounts.reduce<Record<string, number>>(
     (acc, item) => {
       if (!item.brandId) return acc;
+
       acc[item.brandId] = item._count._all;
+      return acc;
+    },
+    {}
+  );
+
+  const categoryCountMap = categoryCounts.reduce<Record<string, number>>(
+    (acc, item) => {
+      if (!item.categoryId) return acc;
+
+      acc[item.categoryId] = item._count._all;
       return acc;
     },
     {}
@@ -255,6 +311,14 @@ export async function getShopFilterData(): Promise<{
     }))
     .filter((brand) => brand.count > 0);
 
+  const activeCategories = categories
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      count: categoryCountMap[category.id] ?? 0,
+    }))
+    .filter((category) => category.count > 0);
+
   const minPrice = Math.floor(
     priceAggregate._min.price ?? DEFAULT_PRICE_RANGE[0]
   );
@@ -265,6 +329,7 @@ export async function getShopFilterData(): Promise<{
 
   return {
     brands: activeBrands,
+    categories: activeCategories,
     priceBounds: [minPrice, maxPrice],
   };
 }
@@ -356,6 +421,16 @@ export async function getShopProducts({
       is: {
         name: {
           in: filters.brands,
+        },
+      },
+    };
+  }
+
+  if (filters.categories.length > 0) {
+    where.category = {
+      is: {
+        name: {
+          in: filters.categories,
         },
       },
     };

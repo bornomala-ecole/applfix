@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, RotateCcw } from "lucide-react";
-import { BrandFilterOption, FilterState } from "@/lib/types/shop";
+import { BrandFilterOption, FilterState, CategoryFilterOption, } from "@/lib/types/shop";
 
 interface FiltersSidebarProps {
   query: string;
@@ -11,6 +11,7 @@ interface FiltersSidebarProps {
   availableBrands: BrandFilterOption[];
   priceBounds: [number, number];
   onReset: () => void;
+  availableCategories: CategoryFilterOption[];
 }
 
 export default function FiltersSidebar({
@@ -21,6 +22,8 @@ export default function FiltersSidebar({
   availableBrands,
   priceBounds,
   onReset,
+  availableCategories
+  
 }: FiltersSidebarProps) {
   function toggleBrand(brandName: string) {
     const exists = filters.brands.includes(brandName);
@@ -132,6 +135,61 @@ export default function FiltersSidebar({
             <p className="text-sm text-gray-500">No brands found.</p>
           )}
         </div>
+
+        <div className="border-t border-gray-200 pt-5">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">
+            Category
+          </h3>
+
+          <div className="space-y-2">
+            {availableCategories.length > 0 ? (
+              availableCategories.map((category) => {
+                const checked = filters.categories.includes(category.name);
+
+                return (
+                  <label
+                    key={category.id}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition hover:bg-gray-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          onFiltersChange((prev) => {
+                            const nextCategories = e.target.checked
+                              ? [...prev.categories, category.name]
+                              : prev.categories.filter(
+                                  (item) => item !== category.name
+                                );
+
+                            return {
+                              ...prev,
+                              categories: nextCategories,
+                            };
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
+                      />
+
+                      <span className="text-gray-700">
+                        {category.name}
+                      </span>
+                    </span>
+
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                      {category.count}
+                    </span>
+                  </label>
+                );
+              })
+            ) : (
+              <p className="text-sm text-gray-400">
+                No categories found.
+              </p>
+            )}
+          </div>
+        </div>        
 
         <div className="border-t border-gray-100 pt-5">
           <h3 className="mb-4 text-sm font-semibold text-gray-950">

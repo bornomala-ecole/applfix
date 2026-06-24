@@ -11,17 +11,20 @@ import SortBar from "@/components/shop/SortBar";
 
 import {
   BrandFilterOption,
+  CategoryFilterOption,
   FilterState,
   ShopPagination,
   ShopProduct,
   SortOption,
 } from "@/lib/types/shop";
 
+
 interface ShopClientProps {
   query: string;
   products: ShopProduct[];
   pagination: ShopPagination;
   availableBrands: BrandFilterOption[];
+  availableCategories: CategoryFilterOption[];
   priceBounds: [number, number];
   initialFilters: FilterState;
   initialSort: SortOption;
@@ -32,6 +35,7 @@ export default function ShopClient({
   products,
   pagination,
   availableBrands,
+  availableCategories,
   priceBounds,
   initialFilters,
   initialSort,
@@ -77,6 +81,10 @@ export default function ShopClient({
       params.append("brand", brand);
     });
 
+    nextFilters.categories.forEach((category) => {
+      params.append("category", category);
+    });
+
     if (nextFilters.priceRange[0] > priceBounds[0]) {
       params.set("min_price", String(nextFilters.priceRange[0]));
     }
@@ -118,14 +126,15 @@ export default function ShopClient({
   function handleReset() {
     const cleanFilters: FilterState = {
       brands: [],
+      categories: [],
       priceRange: priceBounds,
       onSale: false,
     };
-
+  
     setDraftQuery("");
     setFilters(cleanFilters);
     setSort("featured");
-
+  
     startTransition(() => {
       router.push(pathname, { scroll: false });
     });
@@ -148,6 +157,7 @@ export default function ShopClient({
           filters={filters}
           onFiltersChange={setFilters}
           availableBrands={availableBrands}
+          availableCategories={availableCategories}
           priceBounds={priceBounds}
           onReset={handleReset}
         />

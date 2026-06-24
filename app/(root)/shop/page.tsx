@@ -43,18 +43,17 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
           <div className="mb-8 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
             <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-primaryRed">
-              Smartphone Collection
+              Product Collection
             </p>
 
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-gray-950 sm:text-4xl">
-                  Shop All Phones
+                  Shop All Products
                 </h1>
 
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-600 sm:text-base">
-                  Explore real products from your store, filter by brand, search
-                  by model, compare prices, and find the right phone faster.
+                  Browse our complete collection of quality products, compare options, filter by brand or category, and find the right item for your needs.
                 </p>
               </div>
 
@@ -72,6 +71,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             products={products}
             pagination={pagination}
             availableBrands={filterData.brands}
+            availableCategories={filterData.categories}
             priceBounds={filterData.priceBounds}
             initialFilters={filters}
             initialSort={sort}
