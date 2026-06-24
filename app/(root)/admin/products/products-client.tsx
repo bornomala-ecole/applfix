@@ -179,10 +179,15 @@ export default function ProductsClient({
       method: "DELETE",
     });
 
+    const data = await res.json();
+
+    console.log("Delete data:", data)
+
     if (res.ok) {
-      toast.success("Product deleted");
+      toast.success(data.message);
       router.refresh();
     } else {
+      // console.log("Error in product deletion!")
       toast.error("Failed to delete product");
     }
 

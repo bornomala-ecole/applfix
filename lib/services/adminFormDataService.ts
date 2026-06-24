@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 
-export async function getAdminFormData() {
+export async function getAdminProductFormData() {
   const [brands, categories, series] = await Promise.all([
     prisma.brand.findMany({
       orderBy: {

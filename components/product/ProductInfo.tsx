@@ -1,6 +1,6 @@
 import { Star } from "lucide-react";
 import Link from "next/link";
-import { DetailedProduct } from "@/lib/types/shop";
+// import { DetailedProduct } from "@/lib/types/shop";
 
 const StarRating = ({ rating }: { rating: number }) => {
   // ... (same StarRating component as before)
@@ -20,7 +20,7 @@ const StarRating = ({ rating }: { rating: number }) => {
 };
 
 interface ProductInfoProps {
-  product: DetailedProduct;
+  product: any;
   currentPrice: number;
 }
 

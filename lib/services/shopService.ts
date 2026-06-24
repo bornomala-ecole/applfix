@@ -120,6 +120,7 @@ function getProductBadge(product: {
   return undefined;
 }
 
+/*
 export async function getShopFilterData(): Promise<{
   brands: BrandFilterOption[];
   priceBounds: [number, number];
@@ -182,6 +183,88 @@ export async function getShopFilterData(): Promise<{
       name: brand.name,
       count: brand._count.products,
     })),
+    priceBounds: [minPrice, maxPrice],
+  };
+}
+
+*/
+
+export async function getShopFilterData(): Promise<{
+  brands: BrandFilterOption[];
+  priceBounds: [number, number];
+}> {
+  const [brands, brandCounts, priceAggregate] = await Promise.all([
+    prisma.brand.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    }),
+
+    prisma.product.groupBy({
+      by: ["brandId"],
+      where: {
+        isActive: true,
+        brandId: {
+          not: null,
+        },
+        variants: {
+          some: {
+            isActive: true,
+          },
+        },
+      },
+      _count: {
+        _all: true,
+      },
+    }),
+
+    prisma.productVariant.aggregate({
+      where: {
+        isActive: true,
+        product: {
+          isActive: true,
+        },
+      },
+      _min: {
+        price: true,
+      },
+      _max: {
+        price: true,
+      },
+    }),
+  ]);
+
+  const brandCountMap = brandCounts.reduce<Record<string, number>>(
+    (acc, item) => {
+      if (!item.brandId) return acc;
+      acc[item.brandId] = item._count._all;
+      return acc;
+    },
+    {}
+  );
+
+  const activeBrands = brands
+    .map((brand) => ({
+      id: brand.id,
+      name: brand.name,
+      count: brandCountMap[brand.id] ?? 0,
+    }))
+    .filter((brand) => brand.count > 0);
+
+  const minPrice = Math.floor(
+    priceAggregate._min.price ?? DEFAULT_PRICE_RANGE[0]
+  );
+
+  const maxPrice = Math.ceil(
+    priceAggregate._max.price ?? DEFAULT_PRICE_RANGE[1]
+  );
+
+  return {
+    brands: activeBrands,
     priceBounds: [minPrice, maxPrice],
   };
 }

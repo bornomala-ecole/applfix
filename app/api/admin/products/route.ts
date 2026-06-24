@@ -2,94 +2,322 @@
 import { prisma } from "@/lib/prisma"
 import { generateUniqueSlug } from "@/lib/utils/slugify"
 
+function makeSku(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+}
 
 export async function POST(req: Request) {
-
-  function generateSku(
-    slug: string,
-    title: string
-  ) {
-    return `${slug}-${title}`
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-  }
-
-
   try {
     const body = await req.json()
-    
-    if (!body.variants?.length) {
-      return new Response(
-        "At least one variant is required",
+
+    if (!body.name?.trim()) {
+      return Response.json(
+        {
+          success: false,
+          message: "Product name is required",
+        },
         { status: 400 }
       )
     }
 
+    const slugBase = body.slug?.trim() || body.name.trim()
+    const slug = await generateUniqueSlug(slugBase)
 
-    const slug = body.slug ? await generateUniqueSlug(body.slug) : await generateUniqueSlug(body.name)
+    const brandId = body.brandId?.trim?.()
+      ? String(body.brandId).trim()
+      : null
 
-    const brandId =
-      body.brandId && body.brandId.trim() !== ""
-        ? body.brandId
-        : null
+    const categoryId = body.categoryId?.trim?.()
+      ? String(body.categoryId).trim()
+      : null
 
-    const categoryId =
-      body.categoryId && body.categoryId.trim() !== ""
-        ? body.categoryId
-        : null
+    const seriesId = body.seriesId?.trim?.()
+      ? String(body.seriesId).trim()
+      : null
 
-    
+    if (seriesId && !brandId) {
+      return Response.json(
+        {
+          success: false,
+          message: "Brand is required when selecting a series.",
+        },
+        { status: 400 }
+      )
+    }
+
+    if (seriesId) {
+      const selectedSeries = await prisma.series.findUnique({
+        where: {
+          id: seriesId,
+        },
+        select: {
+          id: true,
+          brandId: true,
+        },
+      })
+
+      if (!selectedSeries) {
+        return Response.json(
+          {
+            success: false,
+            message: "Selected series does not exist.",
+          },
+          { status: 400 }
+        )
+      }
+
+      if (selectedSeries.brandId !== brandId) {
+        return Response.json(
+          {
+            success: false,
+            message: "Selected series does not belong to selected brand.",
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    const incomingVariants = Array.isArray(body.variants)
+      ? body.variants
+      : []
+
+    if (incomingVariants.length === 0) {
+      return Response.json(
+        {
+          success: false,
+          message: "At least one variant is required.",
+        },
+        { status: 400 }
+      )
+    }
+
+    const normalizedVariants = incomingVariants.map(
+      (variant: any, index: number) => {
+        const title = String(variant.title || "Default").trim()
+        const color = String(variant.color || "").trim()
+
+        const fallbackSku = makeSku(
+          `${slug}-${title || "default"}-${color || index + 1}`
+        )
+
+        return {
+          sku: String(variant.sku || fallbackSku).trim(),
+          title,
+          color: color || null,
+          price: Number(variant.price || 0),
+          comparePrice:
+            variant.comparePrice === null ||
+            variant.comparePrice === "" ||
+            variant.comparePrice === undefined
+              ? null
+              : Number(variant.comparePrice),
+          costPrice:
+            variant.costPrice === null ||
+            variant.costPrice === "" ||
+            variant.costPrice === undefined
+              ? null
+              : Number(variant.costPrice),
+          stock: Number(variant.stock || 0),
+          lowStockThreshold: Number(
+            variant.lowStockThreshold ?? 5
+          ),
+          isActive:
+            variant.isActive === undefined
+              ? true
+              : Boolean(variant.isActive),
+        }
+      }
+    )
+
+    const invalidVariant = normalizedVariants.find(
+      (variant: any) =>
+        !variant.sku ||
+        !variant.title ||
+        variant.price < 0 ||
+        variant.stock < 0 ||
+        variant.lowStockThreshold < 0
+    )
+
+    if (invalidVariant) {
+      return Response.json(
+        {
+          success: false,
+          message:
+            "Each variant needs SKU, title, valid price, valid stock, and valid low stock threshold.",
+        },
+        { status: 400 }
+      )
+    }
+
+    const incomingSkus = normalizedVariants.map(
+      (variant: any) => variant.sku
+    )
+
+    const hasDuplicateSku =
+      new Set(incomingSkus).size !== incomingSkus.length
+
+    if (hasDuplicateSku) {
+      return Response.json(
+        {
+          success: false,
+          message: "Duplicate SKU found in variants.",
+        },
+        { status: 400 }
+      )
+    }
+
+    const duplicateSku = await prisma.productVariant.findFirst({
+      where: {
+        sku: {
+          in: incomingSkus,
+        },
+      },
+      select: {
+        sku: true,
+      },
+    })
+
+    if (duplicateSku) {
+      return Response.json(
+        {
+          success: false,
+          message: `SKU already exists: ${duplicateSku.sku}`,
+        },
+        { status: 400 }
+      )
+    }
+
+    const variantKeys = normalizedVariants.map((variant: any) => {
+      return `${variant.title.toLowerCase()}::${variant.color || ""}`
+    })
+
+    const hasDuplicateVariant =
+      new Set(variantKeys).size !== variantKeys.length
+
+    if (hasDuplicateVariant) {
+      return Response.json(
+        {
+          success: false,
+          message:
+            "Duplicate variant found. Title and color combination must be unique.",
+        },
+        { status: 400 }
+      )
+    }
+
+    const incomingImages = Array.isArray(body.images)
+      ? body.images
+      : []
+
+    const normalizedImages = incomingImages
+      .filter((image: any) => image.url)
+      .map((image: any, index: number) => ({
+        url: String(image.url),
+        publicId: image.publicId || null,
+        alt: image.alt || body.name,
+        type: image.type === "main" ? "main" : "gallery",
+        sortOrder:
+          typeof image.sortOrder === "number"
+            ? image.sortOrder
+            : index,
+      }))
+
     const product = await prisma.product.create({
       data: {
-        name: body.name,
+        name: String(body.name).trim(),
         slug,
-        description: body.description,
+
+        description: body.description || null,
+        shortDescription: body.shortDescription || null,
+
+        metaTitle: body.metaTitle || null,
+        metaDescription: body.metaDescription || null,
+
         brand: brandId
-        ? {
-            connect: {
-              id: brandId,
-            },
-          }
-        : undefined,
-      
-      category: categoryId
-        ? {
-            connect: {
-              id: categoryId,
-            },
-          }
-        : undefined,
+          ? {
+              connect: {
+                id: brandId,
+              },
+            }
+          : undefined,
 
-        images: {
-          create: body.images.map((img: any) => ({
-            url: img.url,
-            publicId: img.publicId || null,
-            type: img.type || "gallery",
-          })),
-        },
+        category: categoryId
+          ? {
+              connect: {
+                id: categoryId,
+              },
+            }
+          : undefined,
 
+        series: seriesId
+          ? {
+              connect: {
+                id: seriesId,
+              },
+            }
+          : undefined,
+
+        isActive:
+          body.isActive === undefined
+            ? true
+            : Boolean(body.isActive),
+
+        isFeatured: Boolean(body.isFeatured),
+        bestSelling: Boolean(body.bestSelling),
+
+        images: normalizedImages.length
+          ? {
+              create: normalizedImages.map((image: any) => ({
+                url: image.url,
+                publicId: image.publicId,
+                alt: image.alt,
+                type: image.type,
+                sortOrder: image.sortOrder,
+              })),
+            }
+          : undefined,
 
         variants: {
-          create: body.variants.map((v: any) => ({
-            title: v.title,
-            color: v.color || null,
-            price: Number(v.price) || 0,
-            stock: Number(v.stock) || 0,
-            sku: `${slug}-${v.title}`
-              .toLowerCase()
-              .replace(/\s+/g, "-"),
+          create: normalizedVariants.map((variant: any) => ({
+            sku: variant.sku,
+            title: variant.title,
+            color: variant.color,
+            price: variant.price,
+            comparePrice: variant.comparePrice,
+            costPrice: variant.costPrice,
+            stock: variant.stock,
+            lowStockThreshold: variant.lowStockThreshold,
+            isActive: variant.isActive,
           })),
         },
       },
+      include: {
+        brand: true,
+        category: true,
+        series: true,
+        images: true,
+        variants: true,
+      },
     })
-    
 
-
-
-
-    return Response.json(product)
+    return Response.json({
+      success: true,
+      message: "Product created successfully",
+      product,
+    })
   } catch (error) {
-    console.error(error)
-    return new Response("Error creating product", { status: 500 })
+    console.error("PRODUCT CREATE ERROR:", error)
+
+    return Response.json(
+      {
+        success: false,
+        message: "Error creating product",
+      },
+      { status: 500 }
+    )
   }
 }

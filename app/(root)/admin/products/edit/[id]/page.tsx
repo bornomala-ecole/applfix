@@ -31,15 +31,45 @@ export default async function EditProductPage({ params }: Props) {
     notFound();
   }
 
-  const [brands, categories] = await Promise.all([
+  const [brands, categories, series] = await Promise.all([
     prisma.brand.findMany({
       orderBy: {
         name: "asc",
       },
+      select: {
+        id: true,
+        name: true,
+      },
     }),
+
     prisma.category.findMany({
       orderBy: {
         name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    }),
+
+    prisma.series.findMany({
+      orderBy: [
+        {
+          brand: {
+            name: "asc",
+          },
+        },
+        {
+          sortOrder: "asc",
+        },
+        {
+          name: "asc",
+        },
+      ],
+      select: {
+        id: true,
+        name: true,
+        brandId: true,
       },
     }),
   ]);
@@ -65,6 +95,7 @@ export default async function EditProductPage({ params }: Props) {
       product={safeProduct}
       brands={brands}
       categories={categories}
+      series={series}
     />
   );
 }

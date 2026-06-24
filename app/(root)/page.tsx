@@ -6,13 +6,14 @@ import LatestNews from "@/components/home/LatestNews";
 import Newsletter from "@/components/home/NewsLetter";
 import OurServices from "@/components/home/OurServices";
 import Testimonials from "@/components/home/Testimonials";
+import BrandSeriesMenu from "@/components/home/BrandSeriesMenu";
 import Image from "next/image";
 
 export default function Home() {
   return (
     <>
       <HeroSlider />
-      <BrandSection />
+      <BrandSeriesMenu />
       <FeaturedProducts />
       <OurServices />
       <Testimonials />

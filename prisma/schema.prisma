@@ -138,10 +138,35 @@ model Brand {
   name String  @unique
   logo String?
 
+  sortOrder Int @default(0)
+
+  series  Series[]
   products Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model Series {
+  id String @id @default(cuid())
+
+  name String
+
+  brandId String
+  brand   Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  products Product[]
+
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([brandId, name])
+  @@index([brandId])
+  @@index([sortOrder])
 }
 
 model Category {
@@ -158,7 +183,7 @@ model Category {
 // 📱 PRODUCT
 // Example: iPhone 15, Galaxy S24
 //
-
+/*
 model Product {
   id String @id @default(cuid())
 
@@ -196,6 +221,58 @@ model Product {
   @@index([isFeatured])
   @@index([createdAt])
 }
+*/
+
+model Product {
+  id String @id @default(cuid())
+
+  name String
+  slug String @unique
+
+  description      String?
+  shortDescription String?
+
+  metaTitle       String?
+  metaDescription String?
+
+  brandId    String?
+  categoryId String?
+  seriesId   String?
+
+  isActive    Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  bestSelling Boolean @default(false)
+
+  brand    Brand?    @relation(fields: [brandId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id])
+  series   Series?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+
+  images   ProductImage[]
+  variants ProductVariant[]
+
+  orderItems OrderItem[]
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([seriesId])
+  @@index([brandId, seriesId])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([bestSelling])
+  @@index([createdAt])
+}
+
+
+
+
+
+
+
 
 //
 // 📦 PRODUCT VARIANT

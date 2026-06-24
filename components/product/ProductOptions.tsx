@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { DetailedProduct } from "@/lib/types/shop";
+// import { DetailedProduct } from "@/lib/types/shop";
 
 interface ProductOptionsProps {
-  product: DetailedProduct;
+  product: any;
   initialColor: string;
   initialStorage: string;
 }
@@ -25,7 +25,7 @@ export default function ProductOptions({
         </h3>
 
         <div className="mt-3 flex gap-2">
-          {product.variants.color.map((color) => (
+          {product.variants.color.map((color:any) => (
             <button
               key={color.name}
               type="button"
@@ -49,7 +49,7 @@ export default function ProductOptions({
         </h3>
 
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {product.variants.storage.map((storage) => (
+          {product.variants.storage.map((storage:any) => (
             <button
               key={storage.size}
               type="button"

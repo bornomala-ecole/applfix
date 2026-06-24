@@ -27,6 +27,7 @@ export async function DELETE(
         data: {
           isActive: false,
           isFeatured: false,
+          bestSelling: false,
         },
       });
 
@@ -71,10 +72,19 @@ export async function PUT(
     const body = await req.json();
     const { id } = await params;
 
-    const brandId = body.brandId?.trim?.() ? body.brandId : null;
+    const brandId = body.brandId?.trim?.()
+    ? String(body.brandId).trim()
+    : null;
+  
     const categoryId = body.categoryId?.trim?.()
-      ? body.categoryId
+      ? String(body.categoryId).trim()
       : null;
+    
+    const seriesId = body.seriesId?.trim?.()
+      ? String(body.seriesId).trim()
+      : null;
+    
+    const bestSelling = Boolean(body.bestSelling);
 
     if (!body.name?.trim()) {
       return Response.json(
@@ -95,6 +105,51 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    if (seriesId && !brandId) {
+      return Response.json(
+        {
+          success: false,
+          message: "Brand is required when selecting a series.",
+        },
+        { status: 400 }
+      );
+    }
+    
+    if (seriesId) {
+      const selectedSeries = await prisma.series.findUnique({
+        where: {
+          id: seriesId,
+        },
+        select: {
+          id: true,
+          brandId: true,
+        },
+      });
+    
+      if (!selectedSeries) {
+        return Response.json(
+          {
+            success: false,
+            message: "Selected series does not exist.",
+          },
+          { status: 400 }
+        );
+      }
+    
+      if (selectedSeries.brandId !== brandId) {
+        return Response.json(
+          {
+            success: false,
+            message: "Selected series does not belong to selected brand.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+
+
 
     const slug = await generateUniqueSlug(body.slug, id);
 
@@ -293,8 +348,10 @@ export async function PUT(
           metaDescription: body.metaDescription || null,
           brandId,
           categoryId,
+          seriesId,
           isActive: Boolean(body.isActive),
           isFeatured: Boolean(body.isFeatured),
+          bestSelling,
         },
       });
 

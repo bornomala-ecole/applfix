@@ -215,7 +215,7 @@ const AdminDashboardPage = async () => {
 
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/admin/products/create"
+              href="/admin/products/new"
               className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
             >
               <PlusCircle size={17} />

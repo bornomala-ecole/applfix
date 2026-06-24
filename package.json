@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "PORT=3007 next start",
+    "startdev": "next start",
     "lint": "eslint"
   },
   "prisma": {

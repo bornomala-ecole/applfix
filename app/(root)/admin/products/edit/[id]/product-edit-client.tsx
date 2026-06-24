@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import slugify from "slugify";
 import { uploadImage } from "@/lib/cloudinary/uploadImage";
@@ -38,16 +38,25 @@ type Category = {
   name: string;
 };
 
+type Series = {
+  id: string;
+  name: string;
+  brandId: string;
+};
+
+
 type Props = {
   product: any;
   brands: Brand[];
   categories: Category[];
+  series: Series[];
 };
 
 export default function EditProductClient({
   product,
   brands,
   categories,
+  series,
 }: Props) {
   const router = useRouter();
 
@@ -76,12 +85,16 @@ export default function EditProductClient({
   const [categoryId, setCategoryId] = useState(
     product.categoryId ?? ""
   );
+  const [seriesId, setSeriesId] = useState(product.seriesId ?? "");
 
   const [isActive, setIsActive] = useState(
     product.isActive ?? true
   );
   const [isFeatured, setIsFeatured] = useState(
     product.isFeatured ?? false
+  );
+  const [bestSelling, setBestSelling] = useState(
+    product.bestSelling ?? false
   );
 
   // ================= VARIANTS =================
@@ -131,10 +144,26 @@ export default function EditProductClient({
     setSlug(slugify(name, { lower: true, strict: true }));
   }, [name]);
 
+  useEffect(() => {
+    if (!seriesId) return;
+  
+    const selectedSeries = series.find((item) => item.id === seriesId);
+  
+    if (selectedSeries && selectedSeries.brandId !== brandId) {
+      setSeriesId("");
+    }
+  }, [brandId, seriesId, series]);
+
   const mainImage = images.find((image) => image.type === "main");
   const galleryImages = images.filter(
     (image) => image.type === "gallery"
   );
+
+  const filteredSeries = useMemo(() => {
+    if (!brandId) return [];
+  
+    return series.filter((item) => item.brandId === brandId);
+  }, [brandId, series]);
 
   // ================= IMAGE UPLOAD =================
   async function handleMainUpload(
@@ -336,8 +365,10 @@ export default function EditProductClient({
       metaDescription,
       brandId,
       categoryId,
+      seriesId,
       isActive,
       isFeatured,
+      bestSelling,
       images,
       variants,
     };
@@ -448,7 +479,7 @@ export default function EditProductClient({
               Product Status
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="flex items-center gap-3 border rounded-lg p-4 cursor-pointer">
                 <input
                   type="checkbox"
@@ -488,6 +519,25 @@ export default function EditProductClient({
                   </p>
                 </div>
               </label>
+
+              <label className="flex items-center gap-3 border rounded-lg p-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bestSelling}
+                  onChange={(e) => setBestSelling(e.target.checked)}
+                />
+
+                <div>
+                  <p className="font-medium text-gray-900">
+                    Best Selling Product
+                  </p>
+
+                  <p className="text-xs text-gray-500">
+                    Product will appear in best-selling product sections.
+                  </p>
+                </div>
+              </label>
+
             </div>
           </div>
 
@@ -497,7 +547,7 @@ export default function EditProductClient({
               Brand & Category
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Brand
@@ -516,6 +566,33 @@ export default function EditProductClient({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Series
+                </label>
+
+                <select
+                  value={seriesId}
+                  onChange={(e) => setSeriesId(e.target.value)}
+                  disabled={!brandId}
+                  className="border p-2 rounded w-full disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  <option value="">
+                    {brandId ? "Select Series" : "Select brand first"}
+                  </option>
+
+                  {filteredSeries.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+
+                <p className="text-xs text-gray-500 mt-1">
+                  Series list will change based on selected brand.
+                </p>
               </div>
 
               <div>
