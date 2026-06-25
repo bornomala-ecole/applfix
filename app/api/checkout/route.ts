@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
         line_items: result.order.items.map((item) => ({
           quantity: item.quantity,
           price_data: {
-            currency: "usd",
+            currency: "eur",
             unit_amount: toStripeAmount(item.price),
             product_data: {
               name: item.variantTitle
