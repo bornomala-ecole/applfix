@@ -1,7 +1,11 @@
 "use client";
 
 import { Search, RotateCcw } from "lucide-react";
-import { BrandFilterOption, FilterState, CategoryFilterOption, } from "@/lib/types/shop";
+import {
+  BrandFilterOption,
+  FilterState,
+  CategoryFilterOption,
+} from "@/lib/types/shop";
 
 interface FiltersSidebarProps {
   query: string;
@@ -22,8 +26,7 @@ export default function FiltersSidebar({
   availableBrands,
   priceBounds,
   onReset,
-  availableCategories
-  
+  availableCategories,
 }: FiltersSidebarProps) {
   function toggleBrand(brandName: string) {
     const exists = filters.brands.includes(brandName);
@@ -33,6 +36,17 @@ export default function FiltersSidebar({
       brands: exists
         ? filters.brands.filter((brand) => brand !== brandName)
         : [...filters.brands, brandName],
+    });
+  }
+
+  function toggleCategory(categoryName: string) {
+    const exists = filters.categories.includes(categoryName);
+
+    onFiltersChange({
+      ...filters,
+      categories: exists
+        ? filters.categories.filter((category) => category !== categoryName)
+        : [...filters.categories, categoryName],
     });
   }
 
@@ -141,55 +155,34 @@ export default function FiltersSidebar({
             Category
           </h3>
 
-          <div className="space-y-2">
-            {availableCategories.length > 0 ? (
-              availableCategories.map((category) => {
-                const checked = filters.categories.includes(category.name);
+          {availableCategories.length > 0 ? (
+            <div className="space-y-2">
+              {availableCategories.map((category) => (
+                <label
+                  key={category.id}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition hover:bg-gray-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={filters.categories.includes(category.name)}
+                      onChange={() => toggleCategory(category.name)}
+                      className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
+                    />
 
-                return (
-                  <label
-                    key={category.id}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition hover:bg-gray-50"
-                  >
-                    <span className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          onFiltersChange((prev) => {
-                            const nextCategories = e.target.checked
-                              ? [...prev.categories, category.name]
-                              : prev.categories.filter(
-                                  (item) => item !== category.name
-                                );
+                    <span className="text-gray-700">{category.name}</span>
+                  </span>
 
-                            return {
-                              ...prev,
-                              categories: nextCategories,
-                            };
-                          });
-                        }}
-                        className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
-                      />
-
-                      <span className="text-gray-700">
-                        {category.name}
-                      </span>
-                    </span>
-
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                      {category.count}
-                    </span>
-                  </label>
-                );
-              })
-            ) : (
-              <p className="text-sm text-gray-400">
-                No categories found.
-              </p>
-            )}
-          </div>
-        </div>        
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                    {category.count}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">No categories found.</p>
+          )}
+        </div>
 
         <div className="border-t border-gray-100 pt-5">
           <h3 className="mb-4 text-sm font-semibold text-gray-950">

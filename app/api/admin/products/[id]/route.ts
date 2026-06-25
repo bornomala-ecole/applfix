@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generateUniqueSlug } from "@/lib/utils/slugify";
+import { revalidatePath } from "next/cache";
 
 // ======================
 // DELETE PRODUCT
@@ -445,6 +446,9 @@ export async function PUT(
 
       return updatedProduct;
     });
+
+    revalidatePath("/");
+    revalidatePath("/shop");
 
     return Response.json({
       success: true,
