@@ -16,6 +16,8 @@ interface FiltersSidebarProps {
   priceBounds: [number, number];
   onReset: () => void;
   availableCategories: CategoryFilterOption[];
+  showBrandFilter?: boolean;
+  showCategoryFilter?: boolean;
 }
 
 export default function FiltersSidebar({
@@ -27,6 +29,8 @@ export default function FiltersSidebar({
   priceBounds,
   onReset,
   availableCategories,
+  showBrandFilter = true,
+  showCategoryFilter = true,
 }: FiltersSidebarProps) {
   function toggleBrand(brandName: string) {
     const exists = filters.brands.includes(brandName);
@@ -116,73 +120,81 @@ export default function FiltersSidebar({
           </p>
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
-          <h3 className="mb-4 text-sm font-semibold text-gray-950">Brand</h3>
+        {showBrandFilter && (
+          <div className="border-t border-gray-100 pt-5">
+            <h3 className="mb-4 text-sm font-semibold text-gray-950">Brand</h3>
 
-          {availableBrands.length > 0 ? (
-            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-              {availableBrands.map((brand) => (
-                <label
-                  key={brand.id}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50"
-                >
-                  <span className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={filters.brands.includes(brand.name)}
-                      onChange={() => toggleBrand(brand.name)}
-                      className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
-                    />
+            {availableBrands.length > 0 ? (
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                {availableBrands.map((brand) => (
+                  <label
+                    key={brand.id}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50"
+                  >
+                    <span className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={filters.brands.includes(brand.name)}
+                        onChange={() => toggleBrand(brand.name)}
+                        className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
+                      />
 
-                    <span className="text-sm font-medium text-gray-700">
-                      {brand.name}
+                      <span className="text-sm font-medium text-gray-700">
+                        {brand.name}
+                      </span>
                     </span>
-                  </span>
 
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                    {brand.count}
-                  </span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">No brands found.</p>
-          )}
-        </div>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                      {brand.count}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No brands found.</p>
+            )}
+          </div>
+        )}
 
-        <div className="border-t border-gray-200 pt-5">
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">
-            Category
-          </h3>
 
-          {availableCategories.length > 0 ? (
-            <div className="space-y-2">
-              {availableCategories.map((category) => (
-                <label
-                  key={category.id}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition hover:bg-gray-50"
-                >
-                  <span className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={filters.categories.includes(category.name)}
-                      onChange={() => toggleCategory(category.name)}
-                      className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
-                    />
 
-                    <span className="text-gray-700">{category.name}</span>
-                  </span>
+        {showCategoryFilter && (
+          <div className="border-t border-gray-200 pt-5">
+            <h3 className="mb-3 text-sm font-semibold text-gray-900">
+              Category
+            </h3>
 
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                    {category.count}
-                  </span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400">No categories found.</p>
-          )}
-        </div>
+            {availableCategories.length > 0 ? (
+              <div className="space-y-2">
+                {availableCategories.map((category) => (
+                  <label
+                    key={category.id}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm transition hover:bg-gray-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={filters.categories.includes(category.name)}
+                        onChange={() => toggleCategory(category.name)}
+                        className="h-4 w-4 rounded border-gray-300 text-primaryRed focus:ring-primaryRed"
+                      />
+
+                      <span className="text-gray-700">{category.name}</span>
+                    </span>
+
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                      {category.count}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No categories found.</p>
+            )}
+          </div>
+        )}
+
+
 
         <div className="border-t border-gray-100 pt-5">
           <h3 className="mb-4 text-sm font-semibold text-gray-950">

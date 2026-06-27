@@ -28,6 +28,8 @@ interface ShopClientProps {
   priceBounds: [number, number];
   initialFilters: FilterState;
   initialSort: SortOption;
+  showBrandFilter?: boolean;
+  showCategoryFilter?: boolean;
 }
 
 export default function ShopClient({
@@ -39,6 +41,8 @@ export default function ShopClient({
   priceBounds,
   initialFilters,
   initialSort,
+  showBrandFilter = true,
+  showCategoryFilter = true,
 }: ShopClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -77,13 +81,18 @@ export default function ShopClient({
       params.set("q", nextQuery.trim());
     }
 
-    nextFilters.brands.forEach((brand) => {
-      params.append("brand", brand);
-    });
+    if (showBrandFilter) {
+      nextFilters.brands.forEach((brand) => {
+        params.append("brand", brand);
+      });
+    }
 
-    nextFilters.categories.forEach((category) => {
-      params.append("category", category);
-    });
+
+    if (showCategoryFilter) {
+      nextFilters.categories.forEach((category) => {
+        params.append("category", category);
+      });
+    }
 
     if (nextFilters.priceRange[0] > priceBounds[0]) {
       params.set("min_price", String(nextFilters.priceRange[0]));
@@ -125,8 +134,8 @@ export default function ShopClient({
 
   function handleReset() {
     const cleanFilters: FilterState = {
-      brands: [],
-      categories: [],
+      brands: showBrandFilter ? [] : initialFilters.brands,
+      categories: showCategoryFilter ? [] : initialFilters.categories,
       priceRange: priceBounds,
       onSale: false,
     };
@@ -160,6 +169,8 @@ export default function ShopClient({
           availableCategories={availableCategories}
           priceBounds={priceBounds}
           onReset={handleReset}
+          showBrandFilter={showBrandFilter}
+          showCategoryFilter={showCategoryFilter}
         />
       </aside>
 
