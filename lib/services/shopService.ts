@@ -112,13 +112,19 @@ function getProductBadge(product: {
     stock: number;
   }[];
 }): ShopProduct["badge"] {
-  const variant = product.variants[0];
+  const totalStock = product.variants.reduce(
+    (sum, variant) => sum + variant.stock,
+    0
+  );
 
-  if (!variant || variant.stock <= 0) return "Out of Stock";
+  if (totalStock <= 0) return "Out of Stock";
 
-  if (variant.comparePrice && variant.comparePrice > variant.price) {
-    return "Sale";
-  }
+  const hasSaleVariant = product.variants.some(
+    (variant) =>
+      variant.comparePrice && variant.comparePrice > variant.price
+  );
+
+  if (hasSaleVariant) return "Sale";
 
   if (product.isFeatured) return "Featured";
 
@@ -456,14 +462,20 @@ export async function getShopProducts({
           type: true,
           sortOrder: true,
         },
-        orderBy: {
-          sortOrder: "asc",
-        },
+        orderBy: [
+          {
+            type: "asc",
+          },
+          {
+            sortOrder: "asc",
+          },
+        ],
       },
       variants: {
         where: variantWhere,
         select: {
           id: true,
+          sku: true,
           title: true,
           color: true,
           price: true,
@@ -492,13 +504,20 @@ export async function getShopProducts({
 
   let mappedProducts = productsFromDb
     .map((product) => {
-      const variant = product.variants[0];
+      const firstAvailableVariant =
+        product.variants.find((variant) => variant.stock > 0) ||
+        product.variants[0];
 
-      if (!variant) return null;
+      if (!firstAvailableVariant) return null;
 
       const mainImage =
         product.images.find((image) => image.type === "main") ??
         product.images[0];
+
+      const totalStock = product.variants.reduce(
+        (sum, variant) => sum + variant.stock,
+        0
+      );
 
       return {
         id: product.id,
@@ -506,24 +525,33 @@ export async function getShopProducts({
         slug: product.slug,
 
         brand: product.brand?.name ?? "Unbranded",
-        category: product.category?.name ?? null,
+        category: product.category?.name ?? undefined,
 
         image: mainImage?.url ?? "/product-placeholder.png",
         imageAlt: mainImage?.alt ?? product.name,
 
-        price: variant.price,
-        originalPrice: variant.comparePrice,
+        price: firstAvailableVariant.price,
+        originalPrice: firstAvailableVariant.comparePrice,
 
-        variantId: variant.id,
-        variantTitle: variant.color
-          ? `${variant.title} / ${variant.color}`
-          : variant.title,
-        color: variant.color,
-        stock: variant.stock,
+        variantTitle: firstAvailableVariant.color
+          ? `${firstAvailableVariant.title} / ${firstAvailableVariant.color}`
+          : firstAvailableVariant.title,
+
+        stock: totalStock,
 
         shortDescription: product.shortDescription,
 
         badge: getProductBadge(product),
+
+        variants: product.variants.map((variant) => ({
+          id: variant.id,
+          sku: variant.sku,
+          title: variant.title,
+          color: variant.color,
+          price: variant.price,
+          comparePrice: variant.comparePrice,
+          stock: variant.stock,
+        })),
       };
     })
     .filter(Boolean) as ShopProduct[];

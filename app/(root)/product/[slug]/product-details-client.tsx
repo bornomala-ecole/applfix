@@ -193,7 +193,9 @@ export default function ProductDetailsClient({
         quantity,
         stock: selectedVariant.stock,
       });
-
+    
+      window.dispatchEvent(new Event("cart-updated"));
+    
       toast.success("Product added to cart");
       return;
     }

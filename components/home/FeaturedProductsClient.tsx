@@ -5,10 +5,48 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { Check, PackageCheck, ShoppingCart, X } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ShoppingCart,
+  Star,
+  X,
+} from "lucide-react";
 
 import { addGuestCartItem } from "@/lib/cart/guestCart";
-import { ShopProduct } from "@/lib/types/shop";
+
+type FeaturedProductVariant = {
+  id: string;
+  title: string;
+  color: string | null;
+  price: number;
+  comparePrice: number | null;
+  stock: number;
+};
+
+type FeaturedProductImage = {
+  id?: string;
+  url: string;
+  alt: string | null;
+  type: string;
+  sortOrder?: number;
+};
+
+type FeaturedProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  brand: {
+    name: string;
+  } | null;
+  images: FeaturedProductImage[];
+  variants: FeaturedProductVariant[];
+};
+
+type Props = {
+  products: FeaturedProduct[];
+};
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-US", {
@@ -23,38 +61,11 @@ function getDiscountPercent(price: number, originalPrice?: number | null) {
   return Math.round(((originalPrice - price) / originalPrice) * 100);
 }
 
-function Badge({ badge }: { badge?: ShopProduct["badge"] }) {
-  if (!badge) return null;
-
-  const className =
-    badge === "Sale"
-      ? "bg-primaryRed text-white"
-      : badge === "New"
-        ? "bg-emerald-600 text-white"
-        : badge === "Out of Stock"
-          ? "bg-gray-950 text-white"
-          : "bg-gray-900 text-white";
-
-  return (
-    <span
-      className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${className}`}
-    >
-      {badge}
-    </span>
-  );
-}
-
-interface ProductViewProps {
-  products: ShopProduct[];
-  viewMode: "grid" | "list";
-}
-
-export default function ProductView({ products, viewMode }: ProductViewProps) {
+export default function FeaturedProductsClient({ products }: Props) {
   const { status } = useSession();
 
-  const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(
-    null
-  );
+  const [selectedProduct, setSelectedProduct] =
+    useState<FeaturedProduct | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
@@ -72,7 +83,7 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
     );
   }, [selectedProduct, selectedVariantId]);
 
-  function openVariantModal(product: ShopProduct) {
+  function openVariantModal(product: FeaturedProduct) {
     const firstAvailableVariant =
       product.variants.find((variant) => variant.stock > 0) ||
       product.variants[0];
@@ -89,7 +100,14 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
     setIsAdding(false);
   }
 
-  async function handleAddToCartFromShop() {
+  function getMainImage(product: FeaturedProduct) {
+    return (
+      product.images?.find((image) => image.type === "main") ||
+      product.images?.[0]
+    );
+  }
+
+  async function handleAddToCartFromFeatured() {
     if (!selectedProduct || !selectedVariant) {
       toast.error("Please select a variant");
       return;
@@ -100,6 +118,8 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
       return;
     }
 
+    const mainImage = getMainImage(selectedProduct);
+
     try {
       setIsAdding(true);
 
@@ -109,7 +129,7 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
           variantId: selectedVariant.id,
           name: selectedProduct.name,
           slug: selectedProduct.slug,
-          image: selectedProduct.image,
+          image: mainImage?.url || "",
           variantTitle: selectedVariant.title,
           color: selectedVariant.color,
           price: selectedVariant.price,
@@ -285,7 +305,7 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
             <button
               type="button"
               disabled={isAdding || !selectedVariant || selectedVariant.stock <= 0}
-              onClick={handleAddToCartFromShop}
+              onClick={handleAddToCartFromFeatured}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primaryRed px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
             >
               <ShoppingCart size={18} />
@@ -297,136 +317,157 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
     );
   }
 
-  if (products.length === 0) {
-    return (
-      <div className="rounded-3xl border border-dashed border-gray-300 bg-white px-6 py-20 text-center">
-        <h3 className="text-lg font-semibold text-gray-950">
-          No products found
-        </h3>
+  return (
+    <section className="py-14 bg-gray-50">
+      <div className="container">
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white border px-3 py-1 text-xs font-medium text-gray-600">
+              <Star size={13} className="fill-primaryRed text-primaryRed" />
+              Handpicked Deals
+            </div>
 
-        <p className="mt-2 text-sm text-gray-500">
-          Try changing your search or clearing the filters.
-        </p>
-      </div>
-    );
-  }
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+              Featured Products
+            </h2>
 
-  if (viewMode === "list") {
-    return (
-      <>
-        <div className="space-y-4">
+            <p className="mt-1 text-sm text-gray-500">
+              Explore our selected phones with the best value and availability.
+            </p>
+          </div>
+
+          <Link
+            href="/shop"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primaryRed hover:underline"
+          >
+            View All Products
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:gap-6">
           {products.map((product) => {
-            const discountPercent = getDiscountPercent(
-              product.price,
-              product.originalPrice
+            const variants = product.variants || [];
+            const firstAvailableVariant =
+              variants.find((variant) => variant.stock > 0) || variants[0];
+
+            const mainImage = getMainImage(product);
+
+            const totalStock = variants.reduce(
+              (sum, variant) => sum + variant.stock,
+              0
             );
 
-            const isOutOfStock = product.stock <= 0;
+            const isOutOfStock = totalStock <= 0;
+
+            const discountPercent = getDiscountPercent(
+              firstAvailableVariant?.price || 0,
+              firstAvailableVariant?.comparePrice
+            );
 
             return (
               <article
                 key={product.id}
-                className="group overflow-hidden rounded-3xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
+                className="group flex overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
               >
-                <div className="flex flex-col gap-5 sm:flex-row">
+                <div className="flex w-full flex-col">
                   <Link
                     href={`/product/${product.slug}`}
-                    className="relative flex h-48 items-center justify-center rounded-2xl bg-gray-50 sm:h-44 sm:w-44 sm:shrink-0"
+                    className="relative flex aspect-square items-center justify-center bg-gray-50"
                   >
-                    <Badge badge={product.badge} />
+                    <span className="absolute left-3 top-3 rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                      Featured
+                    </span>
+
+                    {discountPercent && (
+                      <span className="absolute right-3 top-3 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-primaryRed shadow-sm">
+                        -{discountPercent}%
+                      </span>
+                    )}
 
                     <Image
-                      src={product.image}
-                      alt={product.imageAlt}
-                      width={220}
-                      height={220}
+                      src={mainImage?.url || "/product-placeholder.png"}
+                      alt={mainImage?.alt || product.name}
+                      width={320}
+                      height={320}
                       className="h-full w-full object-contain p-5 transition-transform duration-300 group-hover:scale-105"
                     />
                   </Link>
 
-                  <div className="flex flex-1 flex-col justify-between">
-                    <div>
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                          {product.brand}
-                        </span>
-
-                        {product.category && (
-                          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                            {product.category}
-                          </span>
-                        )}
-
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-                            isOutOfStock
-                              ? "bg-gray-100 text-gray-500"
-                              : "bg-emerald-50 text-emerald-700"
-                          }`}
-                        >
-                          <PackageCheck size={13} />
-                          {isOutOfStock
-                            ? "Out of stock"
-                            : `${product.stock} in stock`}
-                        </span>
-                      </div>
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="flex-1">
+                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        {product.brand?.name || "No Brand"}
+                      </p>
 
                       <Link href={`/product/${product.slug}`}>
-                        <h3 className="text-xl font-semibold text-gray-950 transition-colors group-hover:text-primaryRed">
+                        <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-gray-950 transition-colors group-hover:text-primaryRed">
                           {product.name}
                         </h3>
                       </Link>
 
-                      <p className="mt-1 text-sm text-gray-500">
-                        {product.variantTitle}
-                      </p>
-
-                      {product.shortDescription && (
-                        <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-gray-600">
-                          {product.shortDescription}
+                      {firstAvailableVariant && (
+                        <p className="mt-1 line-clamp-1 text-xs text-gray-500">
+                          {firstAvailableVariant.color
+                            ? `${firstAvailableVariant.title} / ${firstAvailableVariant.color}`
+                            : firstAvailableVariant.title}
                         </p>
                       )}
                     </div>
 
-                    <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <div className="flex items-end gap-2">
-                          <p className="text-2xl font-bold text-gray-950">
-                            {formatPrice(product.price)}
-                          </p>
+                    <div className="mt-4">
+                      <div className="flex flex-wrap items-end gap-2">
+                        {firstAvailableVariant ? (
+                          <>
+                            <p className="text-lg font-bold text-gray-950">
+                              {variants.length > 1 ? "From " : ""}
+                              {formatPrice(firstAvailableVariant.price)}
+                            </p>
 
-                          {product.originalPrice &&
-                            product.originalPrice > product.price && (
-                              <p className="pb-0.5 text-sm text-gray-400 line-through">
-                                {formatPrice(product.originalPrice)}
-                              </p>
-                            )}
-                        </div>
-
-                        {discountPercent && (
-                          <p className="mt-1 text-xs font-semibold text-primaryRed">
-                            Save {discountPercent}%
+                            {firstAvailableVariant.comparePrice &&
+                              firstAvailableVariant.comparePrice >
+                                firstAvailableVariant.price && (
+                                <p className="pb-0.5 text-xs text-gray-400 line-through">
+                                  {formatPrice(
+                                    firstAvailableVariant.comparePrice
+                                  )}
+                                </p>
+                              )}
+                          </>
+                        ) : (
+                          <p className="text-sm font-semibold text-gray-500">
+                            No variant
                           </p>
                         )}
                       </div>
 
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Link
-                          href={`/product/${product.slug}`}
-                          className="inline-flex items-center justify-center rounded-2xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:bg-gray-50"
+                      <div className="mt-4 flex flex-col items-start justify-between gap-3 w-full">
+                        <p
+                          className={`mb-3 text-xs font-medium ${
+                            isOutOfStock ? "text-gray-400" : "text-emerald-600"
+                          }`}
                         >
-                          View Product
-                        </Link>
+                          {isOutOfStock ? "Out of stock" : "In stock"}
+                        </p>
 
-                        <button
-                          type="button"
-                          disabled={isOutOfStock}
-                          onClick={() => openVariantModal(product)}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primaryRed px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-                        >
-                          <ShoppingCart size={18} />
-                          {isOutOfStock ? "Out of Stock" : "Add to Cart"}
-                        </button>
+                        <div className="flex w-full flex-row items-center justify-between gap-2">
+                          <Link
+                            href={`/product/${product.slug}`}
+                            className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl border border-gray-200 bg-gray-800 px-3 text-sm font-semibold text-white transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-800"
+                          >
+                            View Product
+                          </Link>
+
+                          <button
+                            type="button"
+                            disabled={isOutOfStock || variants.length === 0}
+                            onClick={() => openVariantModal(product)}
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primaryRed text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                            aria-label={`Add ${product.name} to cart`}
+                          >
+                            <ShoppingCart size={18} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -437,120 +478,7 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
         </div>
 
         {renderVariantModal()}
-      </>
-    );
-  }
-
-  return (
-    <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 xl:grid-cols-3 xl:gap-6">
-        {products.map((product) => {
-          const discountPercent = getDiscountPercent(
-            product.price,
-            product.originalPrice
-          );
-
-          const isOutOfStock = product.stock <= 0;
-
-          return (
-            <article
-              key={product.id}
-              className="group flex overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="flex w-full flex-col">
-                <Link
-                  href={`/product/${product.slug}`}
-                  className="relative flex aspect-square items-center justify-center bg-gray-50"
-                >
-                  <Badge badge={product.badge} />
-
-                  {discountPercent && (
-                    <span className="absolute right-3 top-3 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-primaryRed shadow-sm">
-                      -{discountPercent}%
-                    </span>
-                  )}
-
-                  <Image
-                    src={product.image}
-                    alt={product.imageAlt}
-                    width={320}
-                    height={320}
-                    className="h-full w-full object-contain p-5 transition-transform duration-300 group-hover:scale-105"
-                  />
-                </Link>
-
-                <div className="flex flex-1 flex-col p-4">
-                  <div className="flex-1">
-                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-                      {product.brand}
-                    </p>
-
-                    <Link href={`/product/${product.slug}`}>
-                      <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-gray-950 transition-colors group-hover:text-primaryRed">
-                        {product.name}
-                      </h3>
-                    </Link>
-
-                    <p className="mt-1 line-clamp-1 text-xs text-gray-500">
-                      {product.variantTitle}
-                    </p>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="flex flex-wrap items-end gap-2">
-                      <p className="text-lg font-bold text-gray-950">
-                        {formatPrice(product.price)}
-                      </p>
-
-                      {product.originalPrice &&
-                        product.originalPrice > product.price && (
-                          <p className="pb-0.5 text-xs text-gray-400 line-through">
-                            {formatPrice(product.originalPrice)}
-                          </p>
-                        )}
-                    </div>
-
-                    <div className="mt-4 flex flex-col items-start justify-between gap-3 w-full">
-
-                        <p
-                          className={`mb-3 text-xs font-medium ${
-                            isOutOfStock ? "text-gray-400" : "text-emerald-600"
-                          }`}
-                        >
-                          {isOutOfStock ? "Out of stock" : "In stock"}
-                        </p>
-
-                        <div className="flex flex-row items-center gap-2 justify-between w-full">
-                          <Link
-                            href={`/product/${product.slug}`}
-                            className="inline-flex h-11 items-center justify-center rounded-2xl border border-gray-200 px-3 text-sm font-semibold bg-gray-800 text-white transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-800"
-                          >
-                            View Product
-                          </Link>
-
-                          <button
-                            type="button"
-                            disabled={isOutOfStock}
-                            onClick={() => openVariantModal(product)}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primaryRed text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300 cursor-pointer"
-                            aria-label={`Add ${product.name} to cart`}
-                          >
-                            <ShoppingCart size={18} />
-                          </button>
-                        </div>
-                  
-
-
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
-          );
-        })}
       </div>
-
-      {renderVariantModal()}
-    </>
+    </section>
   );
 }
