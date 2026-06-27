@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 
 import FiltersSidebar from "@/components/shop/FilterSidebar";
 import Pagination from "@/components/shop/Pagination";
@@ -18,7 +19,6 @@ import {
   SortOption,
 } from "@/lib/types/shop";
 
-
 interface ShopClientProps {
   query: string;
   products: ShopProduct[];
@@ -32,6 +32,14 @@ interface ShopClientProps {
   showCategoryFilter?: boolean;
 }
 
+type ShopProductsApiResponse = {
+  products: ShopProduct[];
+  pagination: ShopPagination;
+  query: string;
+  filters: FilterState;
+  sort: SortOption;
+};
+
 export default function ShopClient({
   query,
   products,
@@ -44,13 +52,19 @@ export default function ShopClient({
   showBrandFilter = true,
   showCategoryFilter = true,
 }: ShopClientProps) {
-  const router = useRouter();
   const pathname = usePathname();
-  const [isPending, startTransition] = useTransition();
+  const didMountRef = useRef(false);
 
   const [draftQuery, setDraftQuery] = useState(query);
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [sort, setSort] = useState<SortOption>(initialSort);
+  const [currentPage, setCurrentPage] = useState(pagination.currentPage);
+
+  const [shopProducts, setShopProducts] = useState<ShopProduct[]>(products);
+  const [shopPagination, setShopPagination] =
+    useState<ShopPagination>(pagination);
+
+  const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   useEffect(() => {
@@ -65,11 +79,7 @@ export default function ShopClient({
     localStorage.setItem("viewMode", viewMode);
   }, [viewMode]);
 
-  useEffect(() => {
-    setDraftQuery(query);
-  }, [query]);
-
-  function buildShopUrl(
+  function buildShopParams(
     nextQuery: string,
     nextFilters: FilterState,
     nextSort: SortOption,
@@ -86,7 +96,6 @@ export default function ShopClient({
         params.append("brand", brand);
       });
     }
-
 
     if (showCategoryFilter) {
       nextFilters.categories.forEach((category) => {
@@ -114,21 +123,96 @@ export default function ShopClient({
       params.set("page", String(nextPage));
     }
 
-    const queryString = params.toString();
-
-    return queryString ? `${pathname}?${queryString}` : pathname;
+    return params;
   }
 
-  function pushShopState(
+  function updateBrowserUrl(params: URLSearchParams) {
+    const queryString = params.toString();
+    const nextUrl = queryString ? `${pathname}?${queryString}` : pathname;
+
+    window.history.replaceState(null, "", nextUrl);
+  }
+
+  async function fetchShopProducts(
     nextQuery: string,
     nextFilters: FilterState,
     nextSort: SortOption,
-    nextPage = 1
+    nextPage = 1,
+    signal?: AbortSignal
   ) {
-    const url = buildShopUrl(nextQuery, nextFilters, nextSort, nextPage);
+    const params = buildShopParams(
+      nextQuery,
+      nextFilters,
+      nextSort,
+      nextPage
+    );
 
-    startTransition(() => {
-      router.replace(url, { scroll: false });
+    updateBrowserUrl(params);
+
+    const queryString = params.toString();
+    const apiUrl = queryString
+      ? `/api/shop/products?${queryString}`
+      : "/api/shop/products";
+
+    try {
+      setIsLoading(true);
+
+      const res = await fetch(apiUrl, {
+        method: "GET",
+        cache: "no-store",
+        signal,
+      });
+
+      const data = (await res.json()) as
+      | ShopProductsApiResponse
+      | {
+          message?: string;
+        };
+    
+    if (!res.ok) {
+      const errorMessage = "message" in data ? data.message : undefined;
+    
+      toast.error(errorMessage || "Failed to load products");
+      return;
+    }
+    
+    const shopData = data as ShopProductsApiResponse;
+
+      setShopProducts(shopData.products);
+      setShopPagination(shopData.pagination);
+      setCurrentPage(shopData.pagination.currentPage);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+
+      toast.error("Failed to load products");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function handleQueryChange(value: string) {
+    setDraftQuery(value);
+    setCurrentPage(1);
+  }
+
+  function handleFiltersChange(nextFilters: FilterState) {
+    setFilters(nextFilters);
+    setCurrentPage(1);
+  }
+
+  function handleSortChange(nextSort: SortOption) {
+    setSort(nextSort);
+    setCurrentPage(1);
+  }
+
+  function handlePageChange(nextPage: number) {
+    setCurrentPage(nextPage);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
     });
   }
 
@@ -139,32 +223,45 @@ export default function ShopClient({
       priceRange: priceBounds,
       onSale: false,
     };
-  
+
     setDraftQuery("");
     setFilters(cleanFilters);
     setSort("featured");
-  
-    startTransition(() => {
-      router.push(pathname, { scroll: false });
-    });
+    setCurrentPage(1);
   }
 
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+
+    const controller = new AbortController();
+
     const timeout = setTimeout(() => {
-      pushShopState(draftQuery, filters, sort, 1);
+      fetchShopProducts(
+        draftQuery,
+        filters,
+        sort,
+        currentPage,
+        controller.signal
+      );
     }, 300);
 
-    return () => clearTimeout(timeout);
-  }, [draftQuery, filters, sort]);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [draftQuery, filters, sort, currentPage]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_1fr] lg:gap-8">
       <aside className="lg:sticky lg:top-24 lg:self-start">
         <FiltersSidebar
           query={draftQuery}
-          onQueryChange={setDraftQuery}
+          onQueryChange={handleQueryChange}
           filters={filters}
-          onFiltersChange={setFilters}
+          onFiltersChange={handleFiltersChange}
           availableBrands={availableBrands}
           availableCategories={availableCategories}
           priceBounds={priceBounds}
@@ -178,14 +275,14 @@ export default function ShopClient({
         <div className="relative">
           <SortBar
             currentSort={sort}
-            onSortChange={setSort}
-            totalResults={pagination.totalProducts}
+            onSortChange={handleSortChange}
+            totalResults={shopPagination.totalProducts}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
-            isPending={isPending}
+            isPending={isLoading}
           />
 
-          {isPending && (
+          {isLoading && (
             <div className="pointer-events-none absolute right-4 top-4 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm">
               <Loader2 size={14} className="animate-spin text-primaryRed" />
               Updating
@@ -193,8 +290,8 @@ export default function ShopClient({
           )}
         </div>
 
-        <div className="mt-5 relative">
-          {isPending && (
+        <div className="relative mt-5">
+          {isLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/60 backdrop-blur-[1px]">
               <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm">
                 <Loader2 size={16} className="animate-spin text-primaryRed" />
@@ -203,10 +300,13 @@ export default function ShopClient({
             </div>
           )}
 
-          <ProductView products={products} viewMode={viewMode} />
+          <ProductView products={shopProducts} viewMode={viewMode} />
         </div>
 
-        <Pagination pagination={pagination} />
+        <Pagination
+          pagination={shopPagination}
+          onPageChange={handlePageChange}
+        />
       </main>
     </div>
   );

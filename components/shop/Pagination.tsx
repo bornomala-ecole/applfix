@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ShopPagination } from "@/lib/types/shop";
 
 interface PaginationProps {
   pagination: ShopPagination;
+  onPageChange: (page: number) => void;
 }
 
 function getVisiblePages(currentPage: number, totalPages: number) {
@@ -22,27 +21,13 @@ function getVisiblePages(currentPage: number, totalPages: number) {
   return pages;
 }
 
-export default function Pagination({ pagination }: PaginationProps) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
+export default function Pagination({
+  pagination,
+  onPageChange,
+}: PaginationProps) {
   const { currentPage, totalPages, totalProducts, pageSize } = pagination;
 
   if (totalPages <= 1) return null;
-
-  function createPageUrl(page: number) {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (page <= 1) {
-      params.delete("page");
-    } else {
-      params.set("page", String(page));
-    }
-
-    const queryString = params.toString();
-
-    return queryString ? `${pathname}?${queryString}` : pathname;
-  }
 
   const visiblePages = getVisiblePages(currentPage, totalPages);
 
@@ -62,14 +47,14 @@ export default function Pagination({ pagination }: PaginationProps) {
 
         <div className="flex flex-wrap items-center gap-2">
           {currentPage > 1 ? (
-            <Link
-              href={createPageUrl(currentPage - 1)}
-              scroll={false}
+            <button
+              type="button"
+              onClick={() => onPageChange(currentPage - 1)}
               className="inline-flex h-10 items-center gap-1 rounded-2xl border border-gray-200 px-3 text-sm font-semibold text-gray-700 transition hover:border-primaryRed hover:text-primaryRed"
             >
               <ChevronLeft size={16} />
               Prev
-            </Link>
+            </button>
           ) : (
             <span className="inline-flex h-10 cursor-not-allowed items-center gap-1 rounded-2xl border border-gray-100 px-3 text-sm font-semibold text-gray-300">
               <ChevronLeft size={16} />
@@ -79,13 +64,13 @@ export default function Pagination({ pagination }: PaginationProps) {
 
           {visiblePages[0] > 1 && (
             <>
-              <Link
-                href={createPageUrl(1)}
-                scroll={false}
+              <button
+                type="button"
+                onClick={() => onPageChange(1)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 text-sm font-semibold text-gray-700 transition hover:border-primaryRed hover:text-primaryRed"
               >
                 1
-              </Link>
+              </button>
 
               {visiblePages[0] > 2 && (
                 <span className="px-1 text-sm text-gray-400">...</span>
@@ -94,18 +79,20 @@ export default function Pagination({ pagination }: PaginationProps) {
           )}
 
           {visiblePages.map((page) => (
-            <Link
+            <button
               key={page}
-              href={createPageUrl(page)}
-              scroll={false}
+              type="button"
+              onClick={() => onPageChange(page)}
+              disabled={page === currentPage}
+              aria-current={page === currentPage ? "page" : undefined}
               className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl border text-sm font-semibold transition ${
                 page === currentPage
-                  ? "border-primaryRed bg-primaryRed text-white"
+                  ? "cursor-default border-primaryRed bg-primaryRed text-white"
                   : "border-gray-200 text-gray-700 hover:border-primaryRed hover:text-primaryRed"
               }`}
             >
               {page}
-            </Link>
+            </button>
           ))}
 
           {visiblePages[visiblePages.length - 1] < totalPages && (
@@ -114,25 +101,25 @@ export default function Pagination({ pagination }: PaginationProps) {
                 <span className="px-1 text-sm text-gray-400">...</span>
               )}
 
-              <Link
-                href={createPageUrl(totalPages)}
-                scroll={false}
+              <button
+                type="button"
+                onClick={() => onPageChange(totalPages)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 text-sm font-semibold text-gray-700 transition hover:border-primaryRed hover:text-primaryRed"
               >
                 {totalPages}
-              </Link>
+              </button>
             </>
           )}
 
           {currentPage < totalPages ? (
-            <Link
-              href={createPageUrl(currentPage + 1)}
-              scroll={false}
+            <button
+              type="button"
+              onClick={() => onPageChange(currentPage + 1)}
               className="inline-flex h-10 items-center gap-1 rounded-2xl border border-gray-200 px-3 text-sm font-semibold text-gray-700 transition hover:border-primaryRed hover:text-primaryRed"
             >
               Next
               <ChevronRight size={16} />
-            </Link>
+            </button>
           ) : (
             <span className="inline-flex h-10 cursor-not-allowed items-center gap-1 rounded-2xl border border-gray-100 px-3 text-sm font-semibold text-gray-300">
               Next

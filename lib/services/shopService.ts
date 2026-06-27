@@ -348,6 +348,8 @@ interface GetShopProductsArgs {
   pageSize?: number;
 }
 
+
+
 export async function getShopProducts({
   query,
   filters,
@@ -388,13 +390,7 @@ export async function getShopProducts({
         },
       },
       {
-        shortDescription: {
-          contains: query,
-          mode: "insensitive",
-        },
-      },
-      {
-        description: {
+        slug: {
           contains: query,
           mode: "insensitive",
         },
@@ -416,6 +412,33 @@ export async function getShopProducts({
               contains: query,
               mode: "insensitive",
             },
+          },
+        },
+      },
+      {
+        variants: {
+          some: {
+            isActive: true,
+            OR: [
+              {
+                sku: {
+                  contains: query,
+                  mode: "insensitive",
+                },
+              },
+              {
+                title: {
+                  contains: query,
+                  mode: "insensitive",
+                },
+              },
+              {
+                color: {
+                  contains: query,
+                  mode: "insensitive",
+                },
+              },
+            ],
           },
         },
       },
@@ -442,67 +465,165 @@ export async function getShopProducts({
     };
   }
 
-  const productsFromDb = await prisma.product.findMany({
+  const totalProducts = await prisma.product.count({
     where,
-    include: {
-      brand: {
-        select: {
-          name: true,
-        },
-      },
-      category: {
-        select: {
-          name: true,
-        },
-      },
-      images: {
-        select: {
-          url: true,
-          alt: true,
-          type: true,
-          sortOrder: true,
-        },
-        orderBy: [
-          {
-            type: "asc",
-          },
-          {
-            sortOrder: "asc",
-          },
-        ],
-      },
-      variants: {
-        where: variantWhere,
-        select: {
-          id: true,
-          sku: true,
-          title: true,
-          color: true,
-          price: true,
-          comparePrice: true,
-          stock: true,
-        },
-        orderBy: {
-          price: "asc",
-        },
-      },
-    },
-    orderBy:
-      sort === "newest"
-        ? {
-            createdAt: "desc",
-          }
-        : [
-            {
-              isFeatured: "desc",
-            },
-            {
-              createdAt: "desc",
-            },
-          ],
   });
 
-  let mappedProducts = productsFromDb
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const skip = (safePage - 1) * pageSize;
+
+  let productsFromDb;
+
+  if (sort === "price_asc" || sort === "price_desc") {
+    const productPriceGroups = await prisma.productVariant.groupBy({
+      by: ["productId"],
+      where: {
+        ...variantWhere,
+        product: {
+          is: where,
+        },
+      },
+      _min: {
+        price: true,
+      },
+      orderBy: {
+        _min: {
+          price: sort === "price_asc" ? "asc" : "desc",
+        },
+      },
+      skip,
+      take: pageSize,
+    });
+
+    const productIds = productPriceGroups.map((group) => group.productId);
+
+    const productOrderMap = new Map(
+      productIds.map((productId, index) => [productId, index])
+    );
+
+    productsFromDb = await prisma.product.findMany({
+      where: {
+        id: {
+          in: productIds,
+        },
+      },
+      include: {
+        brand: {
+          select: {
+            name: true,
+          },
+        },
+        category: {
+          select: {
+            name: true,
+          },
+        },
+        images: {
+          select: {
+            url: true,
+            alt: true,
+            type: true,
+            sortOrder: true,
+          },
+          orderBy: [
+            {
+              type: "asc",
+            },
+            {
+              sortOrder: "asc",
+            },
+          ],
+        },
+        variants: {
+          where: variantWhere,
+          select: {
+            id: true,
+            sku: true,
+            title: true,
+            color: true,
+            price: true,
+            comparePrice: true,
+            stock: true,
+          },
+          orderBy: {
+            price: "asc",
+          },
+        },
+      },
+    });
+
+    productsFromDb.sort((a, b) => {
+      return (
+        (productOrderMap.get(a.id) ?? 0) -
+        (productOrderMap.get(b.id) ?? 0)
+      );
+    });
+  } else {
+    productsFromDb = await prisma.product.findMany({
+      where,
+      skip,
+      take: pageSize,
+      include: {
+        brand: {
+          select: {
+            name: true,
+          },
+        },
+        category: {
+          select: {
+            name: true,
+          },
+        },
+        images: {
+          select: {
+            url: true,
+            alt: true,
+            type: true,
+            sortOrder: true,
+          },
+          orderBy: [
+            {
+              type: "asc",
+            },
+            {
+              sortOrder: "asc",
+            },
+          ],
+        },
+        variants: {
+          where: variantWhere,
+          select: {
+            id: true,
+            sku: true,
+            title: true,
+            color: true,
+            price: true,
+            comparePrice: true,
+            stock: true,
+          },
+          orderBy: {
+            price: "asc",
+          },
+        },
+      },
+      orderBy:
+        sort === "newest"
+          ? {
+              createdAt: "desc",
+            }
+          : [
+              {
+                isFeatured: "desc",
+              },
+              {
+                createdAt: "desc",
+              },
+            ],
+    });
+  }
+
+  const mappedProducts = productsFromDb
     .map((product) => {
       const firstAvailableVariant =
         product.variants.find((variant) => variant.stock > 0) ||
@@ -556,23 +677,8 @@ export async function getShopProducts({
     })
     .filter(Boolean) as ShopProduct[];
 
-  if (sort === "price_asc") {
-    mappedProducts = mappedProducts.sort((a, b) => a.price - b.price);
-  }
-
-  if (sort === "price_desc") {
-    mappedProducts = mappedProducts.sort((a, b) => b.price - a.price);
-  }
-
-  const totalProducts = mappedProducts.length;
-  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize));
-  const safePage = Math.min(Math.max(page, 1), totalPages);
-
-  const start = (safePage - 1) * pageSize;
-  const paginatedProducts = mappedProducts.slice(start, start + pageSize);
-
   return {
-    products: paginatedProducts,
+    products: mappedProducts,
     pagination: {
       currentPage: safePage,
       pageSize,

@@ -238,6 +238,8 @@ model Product {
 
   metaTitle       String?
   metaDescription String?
+  productSearchText String @default("") @db.Text
+  weightGrams Int?
 
   brandId    String?
   categoryId String?
