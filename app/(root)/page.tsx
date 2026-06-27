@@ -8,6 +8,7 @@ import OurServices from "@/components/home/OurServices";
 import Testimonials from "@/components/home/Testimonials";
 import BrandSeriesMenu from "@/components/home/BrandSeriesMenu";
 import Image from "next/image";
+import BrandCarousel from "@/components/home/BrandCarousel";
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
       <BrandSeriesMenu />
       <FeaturedProducts />
       <OurServices />
+      <BrandCarousel />
       <Testimonials />
       <LatestNews />
       <BestSellers />

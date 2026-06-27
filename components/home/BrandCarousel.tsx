@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma"
-import BrandClient from "./brand-client"
+import BrandCarouselClient from "./BrandCarouselClient"
 
-export default async function BrandsPage() {
+export default async function BrandCarousel() {
   const brands = await prisma.brand.findMany({
     orderBy: [
       { sortOrder: "asc" },
@@ -10,11 +10,15 @@ export default async function BrandsPage() {
     select: {
       id: true,
       name: true,
-      slug: true,
       logo: true,
       sortOrder: true,
+      slug: true,
     },
   })
 
-  return <BrandClient brands={brands} />
+  if (!brands.length) {
+    return null
+  }
+
+  return <BrandCarouselClient brands={brands} />
 }
