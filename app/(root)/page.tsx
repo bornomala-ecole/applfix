@@ -1,5 +1,3 @@
-import BestSellers from "@/components/home/BestSellers";
-import BrandSection from "@/components/home/BrandSection";
 import FeaturedProducts from "@/components/home/FeaturedProducts";
 import HeroSlider from "@/components/home/HeroSlider";
 import LatestNews from "@/components/home/LatestNews";
@@ -9,6 +7,7 @@ import Testimonials from "@/components/home/Testimonials";
 import BrandSeriesMenu from "@/components/home/BrandSeriesMenu";
 import Image from "next/image";
 import BrandCarousel from "@/components/home/BrandCarousel";
+import BestSellerProducts from "@/components/home/BestSellers";
 
 export default function Home() {
   return (
@@ -16,11 +15,11 @@ export default function Home() {
       <HeroSlider />
       <BrandSeriesMenu />
       <FeaturedProducts />
-      <OurServices />
       <BrandCarousel />
+      <BestSellerProducts />
+      <OurServices />
       <Testimonials />
-      <LatestNews />
-      <BestSellers />
+      {/* <LatestNews /> */}
       <Newsletter />
     </>
   );

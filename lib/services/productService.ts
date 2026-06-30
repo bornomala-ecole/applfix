@@ -47,3 +47,61 @@ export async function getFeaturedProducts() {
     take: 8,
   });
 }
+
+
+export async function getBestSellingProducts() {
+  return prisma.product.findMany({
+    where: {
+      isActive: true,
+      bestSelling: true,
+    },
+    take: 8,
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      shortDescription: true,
+      brand: {
+        select: {
+          name: true,
+        },
+      },
+      images: {
+        orderBy: {
+          sortOrder: "asc",
+        },
+        select: {
+          id: true,
+          url: true,
+          alt: true,
+          type: true,
+          sortOrder: true,
+        },
+      },
+      variants: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [
+          {
+            stock: "desc",
+          },
+          {
+            price: "asc",
+          },
+        ],
+        select: {
+          id: true,
+          title: true,
+          color: true,
+          price: true,
+          comparePrice: true,
+          stock: true,
+        },
+      },
+    },
+  });
+}

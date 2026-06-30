@@ -132,6 +132,10 @@ export default async function BrandPage({
           initialSort={sort}
           showBrandFilter={false}
           showCategoryFilter={false}
+          lockedFilters={{
+            brands: [brand.name],
+            categories: [],
+          }}
         />
       </div>
     </div>

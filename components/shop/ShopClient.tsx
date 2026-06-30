@@ -30,6 +30,7 @@ interface ShopClientProps {
   initialSort: SortOption;
   showBrandFilter?: boolean;
   showCategoryFilter?: boolean;
+  lockedFilters?: Partial<Pick<FilterState, "brands" | "categories">>;
 }
 
 type ShopProductsApiResponse = {
@@ -39,6 +40,17 @@ type ShopProductsApiResponse = {
   filters: FilterState;
   sort: SortOption;
 };
+
+function mergeLockedFilters(
+  filters: FilterState,
+  lockedFilters?: Partial<Pick<FilterState, "brands" | "categories">>
+): FilterState {
+  return {
+    ...filters,
+    brands: lockedFilters?.brands ?? filters.brands,
+    categories: lockedFilters?.categories ?? filters.categories,
+  };
+}
 
 export default function ShopClient({
   query,
@@ -51,12 +63,15 @@ export default function ShopClient({
   initialSort,
   showBrandFilter = true,
   showCategoryFilter = true,
+  lockedFilters,
 }: ShopClientProps) {
   const pathname = usePathname();
   const didMountRef = useRef(false);
 
   const [draftQuery, setDraftQuery] = useState(query);
-  const [filters, setFilters] = useState<FilterState>(initialFilters);
+  const [filters, setFilters] = useState<FilterState>(
+    mergeLockedFilters(initialFilters, lockedFilters)
+  );
   const [sort, setSort] = useState<SortOption>(initialSort);
   const [currentPage, setCurrentPage] = useState(pagination.currentPage);
 
@@ -86,32 +101,36 @@ export default function ShopClient({
     nextPage = 1
   ) {
     const params = new URLSearchParams();
+    const requestFilters = mergeLockedFilters(nextFilters, lockedFilters);
 
     if (nextQuery.trim()) {
       params.set("q", nextQuery.trim());
     }
 
-    if (showBrandFilter) {
-      nextFilters.brands.forEach((brand) => {
-        params.append("brand", brand);
-      });
+    /**
+     * Important:
+     * UI visibility should not control API scope.
+     *
+     * On brand/category pages, the checkbox can be hidden, but the locked
+     * brand/category still must be sent to the API request.
+     */
+    requestFilters.brands.forEach((brand) => {
+      params.append("brand", brand);
+    });
+
+    requestFilters.categories.forEach((category) => {
+      params.append("category", category);
+    });
+
+    if (requestFilters.priceRange[0] > priceBounds[0]) {
+      params.set("min_price", String(requestFilters.priceRange[0]));
     }
 
-    if (showCategoryFilter) {
-      nextFilters.categories.forEach((category) => {
-        params.append("category", category);
-      });
+    if (requestFilters.priceRange[1] < priceBounds[1]) {
+      params.set("max_price", String(requestFilters.priceRange[1]));
     }
 
-    if (nextFilters.priceRange[0] > priceBounds[0]) {
-      params.set("min_price", String(nextFilters.priceRange[0]));
-    }
-
-    if (nextFilters.priceRange[1] < priceBounds[1]) {
-      params.set("max_price", String(nextFilters.priceRange[1]));
-    }
-
-    if (nextFilters.onSale) {
+    if (requestFilters.onSale) {
       params.set("on_sale", "true");
     }
 
@@ -127,7 +146,32 @@ export default function ShopClient({
   }
 
   function updateBrowserUrl(params: URLSearchParams) {
-    const queryString = params.toString();
+    const browserParams = new URLSearchParams(params);
+
+    /**
+     * Keep locked filters out of the visible URL.
+     * The page path already represents the locked scope:
+     * /brand/apple, /category/phones, etc.
+     */
+    lockedFilters?.brands?.forEach((brand) => {
+      const values = browserParams.getAll("brand");
+      browserParams.delete("brand");
+
+      values
+        .filter((value) => value !== brand)
+        .forEach((value) => browserParams.append("brand", value));
+    });
+
+    lockedFilters?.categories?.forEach((category) => {
+      const values = browserParams.getAll("category");
+      browserParams.delete("category");
+
+      values
+        .filter((value) => value !== category)
+        .forEach((value) => browserParams.append("category", value));
+    });
+
+    const queryString = browserParams.toString();
     const nextUrl = queryString ? `${pathname}?${queryString}` : pathname;
 
     window.history.replaceState(null, "", nextUrl);
@@ -154,6 +198,12 @@ export default function ShopClient({
       ? `/api/shop/products?${queryString}`
       : "/api/shop/products";
 
+    console.log("[ShopClient] fetch shop products", {
+      apiUrl,
+      lockedFilters,
+      nextFilters,
+    });
+
     try {
       setIsLoading(true);
 
@@ -164,19 +214,19 @@ export default function ShopClient({
       });
 
       const data = (await res.json()) as
-      | ShopProductsApiResponse
-      | {
-          message?: string;
-        };
-    
-    if (!res.ok) {
-      const errorMessage = "message" in data ? data.message : undefined;
-    
-      toast.error(errorMessage || "Failed to load products");
-      return;
-    }
-    
-    const shopData = data as ShopProductsApiResponse;
+        | ShopProductsApiResponse
+        | {
+            message?: string;
+          };
+
+      if (!res.ok) {
+        const errorMessage = "message" in data ? data.message : undefined;
+
+        toast.error(errorMessage || "Failed to load products");
+        return;
+      }
+
+      const shopData = data as ShopProductsApiResponse;
 
       setShopProducts(shopData.products);
       setShopPagination(shopData.pagination);
@@ -186,6 +236,7 @@ export default function ShopClient({
         return;
       }
 
+      console.error("[ShopClient] failed to fetch products", error);
       toast.error("Failed to load products");
     } finally {
       setIsLoading(false);
@@ -198,7 +249,7 @@ export default function ShopClient({
   }
 
   function handleFiltersChange(nextFilters: FilterState) {
-    setFilters(nextFilters);
+    setFilters(mergeLockedFilters(nextFilters, lockedFilters));
     setCurrentPage(1);
   }
 
@@ -217,12 +268,15 @@ export default function ShopClient({
   }
 
   function handleReset() {
-    const cleanFilters: FilterState = {
-      brands: showBrandFilter ? [] : initialFilters.brands,
-      categories: showCategoryFilter ? [] : initialFilters.categories,
-      priceRange: priceBounds,
-      onSale: false,
-    };
+    const cleanFilters = mergeLockedFilters(
+      {
+        brands: showBrandFilter ? [] : initialFilters.brands,
+        categories: showCategoryFilter ? [] : initialFilters.categories,
+        priceRange: priceBounds,
+        onSale: false,
+      },
+      lockedFilters
+    );
 
     setDraftQuery("");
     setFilters(cleanFilters);
@@ -252,7 +306,7 @@ export default function ShopClient({
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [draftQuery, filters, sort, currentPage]);
+  }, [draftQuery, filters, sort, currentPage, lockedFilters]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[300px_1fr] lg:gap-8">

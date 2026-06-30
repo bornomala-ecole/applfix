@@ -2,10 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { addGuestCartItem } from "@/lib/cart/guestCart";
-
 
 import {
   ArrowLeft,
@@ -90,6 +89,15 @@ type RelatedProduct = {
   }[];
 };
 
+type WishlistStatusResponse =
+  | {
+      wishlisted: boolean;
+    }
+  | {
+      message?: string;
+      wishlisted?: boolean;
+    };
+
 type Props = {
   product: Product;
   relatedProducts: RelatedProduct[];
@@ -101,6 +109,8 @@ export default function ProductDetailsClient({
   relatedProducts,
   initialWishlisted,
 }: Props) {
+  const { status } = useSession();
+
   const mainImage =
     product.images.find((image) => image.type === "main") ||
     product.images[0];
@@ -114,12 +124,14 @@ export default function ProductDetailsClient({
 
   const [isWishlisted, setIsWishlisted] = useState(initialWishlisted);
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistStatusLoaded, setWishlistStatusLoaded] = useState(
+    status !== "loading"
+  );
 
   const selectedVariant = useMemo(() => {
     return (
-      product.variants.find(
-        (variant) => variant.id === selectedVariantId
-      ) || product.variants[0]
+      product.variants.find((variant) => variant.id === selectedVariantId) ||
+      product.variants[0]
     );
   }, [product.variants, selectedVariantId]);
 
@@ -145,6 +157,70 @@ export default function ProductDetailsClient({
         )
       : 0;
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWishlistStatus() {
+      if (status === "loading") {
+        return;
+      }
+
+      if (status !== "authenticated") {
+        setIsWishlisted(false);
+        setWishlistStatusLoaded(true);
+        return;
+      }
+
+      const startedAt = performance.now();
+
+      console.log("[ProductDetailsClient] wishlist status fetch start", {
+        productId: product.id,
+      });
+
+      try {
+        setWishlistStatusLoaded(false);
+
+        const res = await fetch(
+          `/api/wishlist/status?productId=${encodeURIComponent(product.id)}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const data = (await res.json()) as WishlistStatusResponse;
+
+        if (cancelled) return;
+
+        if (!res.ok) {
+          console.error("[ProductDetailsClient] wishlist status failed", data);
+          setWishlistStatusLoaded(true);
+          return;
+        }
+
+        setIsWishlisted(Boolean(data.wishlisted));
+        setWishlistStatusLoaded(true);
+
+        console.log("[ProductDetailsClient] wishlist status fetch result", {
+          productId: product.id,
+          wishlisted: Boolean(data.wishlisted),
+          durationMs: (performance.now() - startedAt).toFixed(2),
+        });
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error("[ProductDetailsClient] wishlist status error", error);
+        setWishlistStatusLoaded(true);
+      }
+    }
+
+    void loadWishlistStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product.id, status]);
+
   function formatPrice(price: number) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -159,12 +235,8 @@ export default function ProductDetailsClient({
   function increaseQuantity() {
     if (!selectedVariant) return;
 
-    setQuantity((prev) =>
-      Math.min(selectedVariant.stock, prev + 1)
-    );
+    setQuantity((prev) => Math.min(selectedVariant.stock, prev + 1));
   }
-
-  const { status } = useSession();
 
   async function handleAddToCart() {
     if (!selectedVariant) {
@@ -177,9 +249,6 @@ export default function ProductDetailsClient({
       return;
     }
 
-    // =========================
-    // GUEST CART
-    // =========================
     if (status !== "authenticated") {
       addGuestCartItem({
         productId: product.id,
@@ -193,16 +262,13 @@ export default function ProductDetailsClient({
         quantity,
         stock: selectedVariant.stock,
       });
-    
+
       window.dispatchEvent(new Event("cart-updated"));
-    
+
       toast.success("Product added to cart");
       return;
     }
 
-    // =========================
-    // DATABASE CART
-    // =========================
     const res = await fetch("/api/cart", {
       method: "POST",
       headers: {
@@ -228,9 +294,18 @@ export default function ProductDetailsClient({
   }
 
   async function handleToggleWishlist() {
+    if (status === "loading") {
+      return;
+    }
+
+    if (status !== "authenticated") {
+      toast.info("Please sign in to use wishlist");
+      return;
+    }
+
     try {
       setWishlistLoading(true);
-  
+
       const res = await fetch("/api/wishlist", {
         method: "POST",
         headers: {
@@ -240,45 +315,42 @@ export default function ProductDetailsClient({
           productId: product.id,
         }),
       });
-  
+
       const data = await res.json();
-  
+
       if (!res.ok) {
         toast.error(data.message || "Failed to update wishlist");
         return;
       }
-  
+
       setIsWishlisted(Boolean(data.wishlisted));
-  
+      setWishlistStatusLoaded(true);
+
       toast.success(data.message || "Wishlist updated");
-  
+
       window.dispatchEvent(new Event("wishlist-updated"));
     } catch (error) {
+      console.error("[ProductDetailsClient] wishlist toggle failed", error);
       toast.error("Something went wrong");
     } finally {
       setWishlistLoading(false);
     }
   }
 
-  
-
   return (
-    <main className="bg-gray-50 min-h-screen py-8">
+    <main className="min-h-screen bg-gray-50 py-8">
       <div className="container">
-        {/* BACK */}
         <Link
           href="/shop"
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900"
         >
           <ArrowLeft size={16} />
           Back to Shop
         </Link>
 
-        {/* PRODUCT DETAILS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* LEFT: IMAGES */}
-          <div className="bg-white border rounded-2xl p-4 lg:p-6">
-            <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="rounded-2xl border bg-white p-4 lg:p-6">
+            <div className="relative aspect-square overflow-hidden rounded-2xl bg-gray-50">
               {selectedImage ? (
                 <Image
                   src={selectedImage.url}
@@ -289,27 +361,24 @@ export default function ProductDetailsClient({
                   priority
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                <div className="flex h-full w-full items-center justify-center text-gray-400">
                   No Image
                 </div>
               )}
             </div>
 
             {product.images.length > 1 && (
-              <div className="grid grid-cols-5 gap-3 mt-4">
+              <div className="mt-4 grid grid-cols-5 gap-3">
                 {product.images.map((image) => {
-                  const isSelected =
-                    selectedImage?.url === image.url;
+                  const isSelected = selectedImage?.url === image.url;
 
                   return (
                     <button
                       key={image.id}
                       type="button"
                       onClick={() => setSelectedImage(image)}
-                      className={`relative aspect-square rounded-xl border overflow-hidden bg-gray-50 ${
-                        isSelected
-                          ? "ring-2 ring-black"
-                          : "hover:border-gray-400"
+                      className={`relative aspect-square overflow-hidden rounded-xl border bg-gray-50 ${
+                        isSelected ? "ring-2 ring-black" : "hover:border-gray-400"
                       }`}
                     >
                       <Image
@@ -326,44 +395,42 @@ export default function ProductDetailsClient({
             )}
           </div>
 
-          {/* RIGHT: INFO */}
-          <div className="bg-white border rounded-2xl p-6">
-            <div className="flex flex-wrap gap-2 mb-4">
+          <div className="rounded-2xl border bg-white p-6">
+            <div className="mb-4 flex flex-wrap gap-2">
               {product.isFeatured && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-black text-white px-3 py-1 text-xs font-medium">
+                <span className="inline-flex items-center gap-1 rounded-full bg-black px-3 py-1 text-xs font-medium text-white">
                   <Star size={12} />
                   Featured
                 </span>
               )}
 
               {hasComparePrice && (
-                <span className="rounded-full bg-primaryRed text-white px-3 py-1 text-xs font-medium">
+                <span className="rounded-full bg-primaryRed px-3 py-1 text-xs font-medium text-white">
                   {discountPercent}% OFF
                 </span>
               )}
 
               {product.category && (
-                <span className="rounded-full bg-gray-100 text-gray-700 px-3 py-1 text-xs font-medium">
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
                   {product.category.name}
                 </span>
               )}
             </div>
 
-            <p className="text-sm text-gray-500 mb-2">
+            <p className="mb-2 text-sm text-gray-500">
               {product.brand?.name || "No Brand"}
             </p>
 
-            <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-900 lg:text-4xl">
               {product.name}
             </h1>
 
             {product.shortDescription && (
-              <p className="text-gray-500 mt-3 leading-relaxed">
+              <p className="mt-3 leading-relaxed text-gray-500">
                 {product.shortDescription}
               </p>
             )}
 
-            {/* PRICE */}
             <div className="mt-6">
               {selectedVariant ? (
                 <div className="flex flex-wrap items-end gap-3">
@@ -384,13 +451,12 @@ export default function ProductDetailsClient({
               )}
 
               {selectedVariant && (
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="mt-2 text-xs text-gray-500">
                   SKU: {selectedVariant.sku}
                 </p>
               )}
             </div>
 
-            {/* STOCK */}
             <div className="mt-4">
               {selectedVariant ? (
                 <div>
@@ -398,21 +464,19 @@ export default function ProductDetailsClient({
                     className={`text-sm font-medium ${
                       isOutOfStock
                         ? "text-red-600"
-                        : selectedVariant.stock <=
-                          selectedVariant.lowStockThreshold
-                        ? "text-orange-600"
-                        : "text-green-600"
+                        : selectedVariant.stock <= selectedVariant.lowStockThreshold
+                          ? "text-orange-600"
+                          : "text-green-600"
                     }`}
                   >
                     {isOutOfStock
                       ? "Out of stock"
-                      : selectedVariant.stock <=
-                        selectedVariant.lowStockThreshold
-                      ? `Only ${selectedVariant.stock} left`
-                      : "In stock"}
+                      : selectedVariant.stock <= selectedVariant.lowStockThreshold
+                        ? `Only ${selectedVariant.stock} left`
+                        : "In stock"}
                   </p>
 
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="mt-1 text-xs text-gray-400">
                     Total available stock: {totalStock}
                   </p>
                 </div>
@@ -423,18 +487,15 @@ export default function ProductDetailsClient({
               )}
             </div>
 
-            {/* VARIANTS */}
             {product.variants.length > 0 && (
               <div className="mt-6">
-                <h2 className="text-sm font-semibold text-gray-900 mb-3">
+                <h2 className="mb-3 text-sm font-semibold text-gray-900">
                   Select Variant
                 </h2>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {product.variants.map((variant) => {
-                    const isSelected =
-                      selectedVariantId === variant.id;
-
+                    const isSelected = selectedVariantId === variant.id;
                     const disabled = variant.stock <= 0;
 
                     return (
@@ -446,19 +507,15 @@ export default function ProductDetailsClient({
                           setSelectedVariantId(variant.id);
                           setQuantity(1);
                         }}
-                        className={`border rounded-xl p-3 text-left transition ${
+                        className={`rounded-xl border p-3 text-left transition ${
                           isSelected
                             ? "border-black bg-gray-50"
                             : "hover:border-gray-400"
-                        } ${
-                          disabled
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
+                        } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                       >
                         <div className="flex justify-between gap-2">
                           <div>
-                            <p className="font-semibold text-sm text-gray-900">
+                            <p className="text-sm font-semibold text-gray-900">
                               {variant.title}
                             </p>
 
@@ -469,16 +526,14 @@ export default function ProductDetailsClient({
                             )}
                           </div>
 
-                          {isSelected && (
-                            <Check size={16} className="text-black" />
-                          )}
+                          {isSelected && <Check size={16} className="text-black" />}
                         </div>
 
-                        <p className="text-sm font-bold mt-2">
+                        <p className="mt-2 text-sm font-bold">
                           {formatPrice(variant.price)}
                         </p>
 
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="mt-1 text-xs text-gray-400">
                           {variant.stock > 0
                             ? `${variant.stock} in stock`
                             : "Out of stock"}
@@ -490,13 +545,12 @@ export default function ProductDetailsClient({
               </div>
             )}
 
-            {/* QUANTITY */}
             <div className="mt-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">
+              <h2 className="mb-3 text-sm font-semibold text-gray-900">
                 Quantity
               </h2>
 
-              <div className="inline-flex items-center border rounded-xl overflow-hidden">
+              <div className="inline-flex items-center overflow-hidden rounded-xl border">
                 <button
                   type="button"
                   onClick={decreaseQuantity}
@@ -505,9 +559,7 @@ export default function ProductDetailsClient({
                   <Minus size={16} />
                 </button>
 
-                <span className="px-5 text-sm font-semibold">
-                  {quantity}
-                </span>
+                <span className="px-5 text-sm font-semibold">{quantity}</span>
 
                 <button
                   type="button"
@@ -520,13 +572,12 @@ export default function ProductDetailsClient({
               </div>
             </div>
 
-            {/* ACTIONS */}
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={isOutOfStock || !selectedVariant}
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-black text-white px-5 py-3 rounded-xl font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <ShoppingCart size={18} />
                 Add to Cart
@@ -535,8 +586,8 @@ export default function ProductDetailsClient({
               <button
                 type="button"
                 onClick={handleToggleWishlist}
-                disabled={wishlistLoading}
-                className={`inline-flex items-center justify-center gap-2 border px-5 py-3 rounded-xl font-medium transition disabled:opacity-50 ${
+                disabled={wishlistLoading || status === "loading"}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-3 font-medium transition disabled:opacity-50 ${
                   isWishlisted
                     ? "border-primaryRed bg-red-50 text-primaryRed"
                     : "hover:bg-gray-50"
@@ -549,30 +600,33 @@ export default function ProductDetailsClient({
 
                 {wishlistLoading
                   ? "Updating..."
-                  : isWishlisted
-                  ? "Wishlisted"
-                  : "Wishlist"}
+                  : status === "loading"
+                    ? "Checking..."
+                    : status === "authenticated" && !wishlistStatusLoaded
+                      ? "Checking..."
+                      : isWishlisted
+                        ? "Wishlisted"
+                        : "Wishlist"}
               </button>
             </div>
 
-            {/* TRUST INFO */}
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="border rounded-xl p-4">
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border p-4">
                 <Truck size={18} className="mb-2 text-gray-700" />
                 <p className="text-sm font-semibold text-gray-900">
                   Fast Delivery
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Reliable shipping on eligible products.
                 </p>
               </div>
 
-              <div className="border rounded-xl p-4">
+              <div className="rounded-xl border p-4">
                 <Check size={18} className="mb-2 text-gray-700" />
                 <p className="text-sm font-semibold text-gray-900">
                   Quality Checked
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Products are reviewed before listing.
                 </p>
               </div>
@@ -580,24 +634,20 @@ export default function ProductDetailsClient({
           </div>
         </div>
 
-        {/* DESCRIPTION */}
-        <div className="mt-8 bg-white border rounded-2xl p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-3">
+        <div className="mt-8 rounded-2xl border bg-white p-6">
+          <h2 className="mb-3 text-xl font-bold text-gray-900">
             Product Description
           </h2>
 
           {product.description ? (
-            <p className="text-gray-600 leading-relaxed whitespace-pre-line">
+            <p className="whitespace-pre-line leading-relaxed text-gray-600">
               {product.description}
             </p>
           ) : (
-            <p className="text-gray-500">
-              No detailed description available.
-            </p>
+            <p className="text-gray-500">No detailed description available.</p>
           )}
         </div>
 
-        {/* RELATED PRODUCTS */}
         {relatedProducts.length > 0 && (
           <div className="mt-10">
             <div className="mb-5 flex items-center justify-between">
@@ -605,10 +655,7 @@ export default function ProductDetailsClient({
                 Related Products
               </h2>
 
-              <Link
-                href="/shop"
-                className="text-sm text-primaryRed hover:underline"
-              >
+              <Link href="/shop" className="text-sm text-primaryRed hover:underline">
                 View All
               </Link>
             </div>
@@ -622,7 +669,7 @@ export default function ProductDetailsClient({
                   <Link
                     key={item.id}
                     href={`/product/${item.slug}`}
-                    className="group bg-white border rounded-2xl overflow-hidden hover:shadow-lg transition"
+                    className="group overflow-hidden rounded-2xl border bg-white transition hover:shadow-lg"
                   >
                     <div className="relative aspect-square bg-gray-50">
                       {image ? (
@@ -631,10 +678,10 @@ export default function ProductDetailsClient({
                           alt={image.alt || item.name}
                           fill
                           sizes="(max-width: 768px) 50vw, 25vw"
-                          className="object-contain p-5 group-hover:scale-105 transition"
+                          className="object-contain p-5 transition group-hover:scale-105"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                        <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
                           No Image
                         </div>
                       )}
@@ -645,14 +692,12 @@ export default function ProductDetailsClient({
                         {item.brand?.name || "No Brand"}
                       </p>
 
-                      <h3 className="line-clamp-2 mt-1 text-sm font-semibold text-gray-900 group-hover:text-primaryRed">
+                      <h3 className="mt-1 line-clamp-2 text-sm font-semibold text-gray-900 group-hover:text-primaryRed">
                         {item.name}
                       </h3>
 
                       <p className="mt-3 font-bold text-gray-900">
-                        {variant
-                          ? formatPrice(variant.price)
-                          : "Unavailable"}
+                        {variant ? formatPrice(variant.price) : "Unavailable"}
                       </p>
                     </div>
                   </Link>
