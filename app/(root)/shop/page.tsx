@@ -3,6 +3,7 @@ import {
   getShopFilterData,
   getShopProducts,
 } from "@/lib/services/shopService";
+import { FilterState, SortOption } from "@/lib/types/shop";
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -12,14 +13,14 @@ export default async function ShopPage() {
 
   const query = "";
 
-  const filters = {
+  const filters: FilterState = {
     brands: [],
     categories: [],
     priceRange: filterData.priceBounds,
     onSale: false,
   };
 
-  const sort = "featured" as const;
+  const sort: SortOption = "featured";
   const page = 1;
 
   const { products, pagination } = await getShopProducts({
@@ -53,9 +54,11 @@ export default async function ShopPage() {
 
             <div className="rounded-2xl bg-gray-50 px-5 py-4 text-sm text-gray-600">
               <span className="font-semibold text-gray-950">
-                {pagination.totalProducts}
-              </span>{" "}
-              products found
+                Fast browsing
+              </span>
+              <span className="block text-xs text-gray-500">
+                Product details load when needed
+              </span>
             </div>
           </div>
         </div>

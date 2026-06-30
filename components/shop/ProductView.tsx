@@ -2,13 +2,28 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { Check, PackageCheck, ShoppingCart, X } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  PackageCheck,
+  ShoppingCart,
+  X,
+} from "lucide-react";
 
 import { addGuestCartItem } from "@/lib/cart/guestCart";
-import { ShopProduct } from "@/lib/types/shop";
+import { ShopProduct, ShopProductVariant } from "@/lib/types/shop";
+
+type ProductVariantsApiResponse =
+  | {
+      productId: string;
+      variants: ShopProductVariant[];
+    }
+  | {
+      message?: string;
+    };
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-US", {
@@ -21,6 +36,14 @@ function getDiscountPercent(price: number, originalPrice?: number | null) {
   if (!originalPrice || originalPrice <= price) return null;
 
   return Math.round(((originalPrice - price) / originalPrice) * 100);
+}
+
+function getFirstSelectableVariant(variants: ShopProductVariant[]) {
+  return (
+    variants.find((variant) => variant.stock > 0) ||
+    variants[0] ||
+    null
+  );
 }
 
 function Badge({ badge }: { badge?: ShopProduct["badge"] }) {
@@ -52,40 +75,148 @@ interface ProductViewProps {
 export default function ProductView({ products, viewMode }: ProductViewProps) {
   const { status } = useSession();
 
+  const variantRequestRef = useRef(0);
+
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(
     null
   );
+  const [selectedVariants, setSelectedVariants] = useState<
+    ShopProductVariant[]
+  >([]);
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [quantity, setQuantity] = useState(1);
+
+  const [isLoadingVariants, setIsLoadingVariants] = useState(false);
+  const [variantLoadError, setVariantLoadError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
 
   const selectedVariant = useMemo(() => {
-    if (!selectedProduct) return null;
+    if (selectedVariants.length === 0) return null;
 
     return (
-      selectedProduct.variants.find(
-        (variant) => variant.id === selectedVariantId
-      ) ||
-      selectedProduct.variants.find((variant) => variant.stock > 0) ||
-      selectedProduct.variants[0] ||
-      null
+      selectedVariants.find((variant) => variant.id === selectedVariantId) ||
+      getFirstSelectableVariant(selectedVariants)
     );
-  }, [selectedProduct, selectedVariantId]);
+  }, [selectedVariants, selectedVariantId]);
+
+  async function fetchProductVariants(product: ShopProduct, requestId: number) {
+    const startedAt = performance.now();
+
+    console.log("[ProductView] variant fetch start", {
+      productId: product.id,
+      productName: product.name,
+    });
+
+    try {
+      setIsLoadingVariants(true);
+      setVariantLoadError(null);
+
+      const res = await fetch(
+        `/api/shop/products/${encodeURIComponent(product.id)}/variants`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const data = (await res.json()) as ProductVariantsApiResponse;
+
+      if (variantRequestRef.current !== requestId) {
+        return;
+      }
+
+      if (!res.ok) {
+        const errorMessage =
+          "message" in data && data.message
+            ? data.message
+            : "Failed to load product variants";
+
+        setVariantLoadError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      if (!("variants" in data)) {
+        setVariantLoadError("Failed to load product variants");
+        toast.error("Failed to load product variants");
+        return;
+      }
+
+      setSelectedVariants(data.variants);
+
+      const firstVariant = getFirstSelectableVariant(data.variants);
+      setSelectedVariantId(firstVariant?.id ?? "");
+
+      console.log("[ProductView] variant fetch result", {
+        productId: product.id,
+        variants: data.variants.length,
+        durationMs: (performance.now() - startedAt).toFixed(2),
+      });
+    } catch (error) {
+      if (variantRequestRef.current !== requestId) {
+        return;
+      }
+
+      console.error("[ProductView] variant fetch failed", error);
+
+      setVariantLoadError("Failed to load product variants");
+      toast.error("Failed to load product variants");
+    } finally {
+      if (variantRequestRef.current === requestId) {
+        setIsLoadingVariants(false);
+
+        console.log("[ProductView] variant fetch total", {
+          productId: product.id,
+          durationMs: (performance.now() - startedAt).toFixed(2),
+        });
+      }
+    }
+  }
 
   function openVariantModal(product: ShopProduct) {
-    const firstAvailableVariant =
-      product.variants.find((variant) => variant.stock > 0) ||
-      product.variants[0];
+    const requestId = variantRequestRef.current + 1;
+    variantRequestRef.current = requestId;
+
+    const existingVariants = product.variants ?? [];
+    const firstVariant = getFirstSelectableVariant(existingVariants);
 
     setSelectedProduct(product);
-    setSelectedVariantId(firstAvailableVariant?.id || "");
+    setSelectedVariants(existingVariants);
+    setSelectedVariantId(firstVariant?.id ?? "");
     setQuantity(1);
+    setIsAdding(false);
+    setVariantLoadError(null);
+
+    if (existingVariants.length > 0) {
+      return;
+    }
+
+    void fetchProductVariants(product, requestId);
+  }
+
+  function retryVariantFetch() {
+    if (!selectedProduct) return;
+
+    const requestId = variantRequestRef.current + 1;
+    variantRequestRef.current = requestId;
+
+    setSelectedVariants([]);
+    setSelectedVariantId("");
+    setQuantity(1);
+    setVariantLoadError(null);
+
+    void fetchProductVariants(selectedProduct, requestId);
   }
 
   function closeVariantModal() {
+    variantRequestRef.current += 1;
+
     setSelectedProduct(null);
+    setSelectedVariants([]);
     setSelectedVariantId("");
     setQuantity(1);
+    setIsLoadingVariants(false);
+    setVariantLoadError(null);
     setIsAdding(false);
   }
 
@@ -148,10 +279,113 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
       toast.success("Product added to cart");
       closeVariantModal();
     } catch (error) {
+      console.error("[ProductView] add to cart failed", error);
       toast.error("Something went wrong");
     } finally {
       setIsAdding(false);
     }
+  }
+
+  function renderVariantModalContent() {
+    if (isLoadingVariants) {
+      return (
+        <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50">
+          <div className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600">
+            <Loader2 size={18} className="animate-spin text-primaryRed" />
+            Loading variants...
+          </div>
+        </div>
+      );
+    }
+
+    if (variantLoadError) {
+      return (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
+          <p className="text-sm font-semibold text-red-700">
+            {variantLoadError}
+          </p>
+
+          <button
+            type="button"
+            onClick={retryVariantFetch}
+            className="mt-4 inline-flex items-center justify-center rounded-2xl bg-primaryRed px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+
+    if (selectedVariants.length === 0) {
+      return (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center">
+          <p className="text-sm font-semibold text-gray-700">
+            No variants are available for this product.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
+        {selectedVariants.map((variant) => {
+          const isSelected = selectedVariantId === variant.id;
+          const disabled = variant.stock <= 0;
+
+          return (
+            <button
+              key={variant.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                setSelectedVariantId(variant.id);
+                setQuantity(1);
+              }}
+              className={`w-full rounded-2xl border p-4 text-left transition ${
+                isSelected
+                  ? "border-primaryRed bg-red-50"
+                  : "border-gray-200 hover:border-gray-400"
+              } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-gray-950">
+                    {variant.title}
+                  </p>
+
+                  {variant.color && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      {variant.color}
+                    </p>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-gray-950">
+                      {formatPrice(variant.price)}
+                    </p>
+
+                    {variant.comparePrice &&
+                      variant.comparePrice > variant.price && (
+                        <p className="text-xs text-gray-400 line-through">
+                          {formatPrice(variant.comparePrice)}
+                        </p>
+                      )}
+                  </div>
+
+                  <p className="mt-1 text-xs text-gray-500">
+                    {variant.stock > 0
+                      ? `${variant.stock} in stock`
+                      : "Out of stock"}
+                  </p>
+                </div>
+
+                {isSelected && <Check size={18} className="text-primaryRed" />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
   }
 
   function renderVariantModal() {
@@ -187,66 +421,7 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
             </button>
           </div>
 
-          <div className="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
-            {selectedProduct.variants.map((variant) => {
-              const isSelected = selectedVariantId === variant.id;
-              const disabled = variant.stock <= 0;
-
-              return (
-                <button
-                  key={variant.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    setSelectedVariantId(variant.id);
-                    setQuantity(1);
-                  }}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${
-                    isSelected
-                      ? "border-primaryRed bg-red-50"
-                      : "border-gray-200 hover:border-gray-400"
-                  } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-gray-950">
-                        {variant.title}
-                      </p>
-
-                      {variant.color && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          {variant.color}
-                        </p>
-                      )}
-
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-bold text-gray-950">
-                          {formatPrice(variant.price)}
-                        </p>
-
-                        {variant.comparePrice &&
-                          variant.comparePrice > variant.price && (
-                            <p className="text-xs text-gray-400 line-through">
-                              {formatPrice(variant.comparePrice)}
-                            </p>
-                          )}
-                      </div>
-
-                      <p className="mt-1 text-xs text-gray-500">
-                        {variant.stock > 0
-                          ? `${variant.stock} in stock`
-                          : "Out of stock"}
-                      </p>
-                    </div>
-
-                    {isSelected && (
-                      <Check size={18} className="text-primaryRed" />
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          {renderVariantModalContent()}
 
           <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -255,8 +430,9 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
               <div className="mt-2 inline-flex items-center overflow-hidden rounded-xl border border-gray-200">
                 <button
                   type="button"
+                  disabled={isLoadingVariants || !selectedVariant}
                   onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                  className="px-4 py-2 text-sm transition hover:bg-gray-50"
+                  className="px-4 py-2 text-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   -
                 </button>
@@ -267,7 +443,11 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
 
                 <button
                   type="button"
-                  disabled={!selectedVariant || selectedVariant.stock <= quantity}
+                  disabled={
+                    isLoadingVariants ||
+                    !selectedVariant ||
+                    selectedVariant.stock <= quantity
+                  }
                   onClick={() =>
                     setQuantity((prev) =>
                       selectedVariant
@@ -284,7 +464,12 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
 
             <button
               type="button"
-              disabled={isAdding || !selectedVariant || selectedVariant.stock <= 0}
+              disabled={
+                isAdding ||
+                isLoadingVariants ||
+                !selectedVariant ||
+                selectedVariant.stock <= 0
+              }
               onClick={handleAddToCartFromShop}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primaryRed px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
             >
@@ -510,37 +695,33 @@ export default function ProductView({ products, viewMode }: ProductViewProps) {
                         )}
                     </div>
 
-                    <div className="mt-4 flex flex-col items-start justify-between gap-3 w-full">
+                    <div className="mt-4 flex w-full flex-col items-start justify-between gap-3">
+                      <p
+                        className={`mb-3 text-xs font-medium ${
+                          isOutOfStock ? "text-gray-400" : "text-emerald-600"
+                        }`}
+                      >
+                        {isOutOfStock ? "Out of stock" : "In stock"}
+                      </p>
 
-                        <p
-                          className={`mb-3 text-xs font-medium ${
-                            isOutOfStock ? "text-gray-400" : "text-emerald-600"
-                          }`}
+                      <div className="flex w-full flex-row items-center justify-between gap-2">
+                        <Link
+                          href={`/product/${product.slug}`}
+                          className="inline-flex h-11 items-center justify-center rounded-2xl border border-gray-200 bg-gray-800 px-3 text-sm font-semibold text-white transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-800"
                         >
-                          {isOutOfStock ? "Out of stock" : "In stock"}
-                        </p>
+                          View Product
+                        </Link>
 
-                        <div className="flex flex-row items-center gap-2 justify-between w-full">
-                          <Link
-                            href={`/product/${product.slug}`}
-                            className="inline-flex h-11 items-center justify-center rounded-2xl border border-gray-200 px-3 text-sm font-semibold bg-gray-800 text-white transition hover:border-gray-400 hover:bg-gray-50 hover:text-gray-800"
-                          >
-                            View Product
-                          </Link>
-
-                          <button
-                            type="button"
-                            disabled={isOutOfStock}
-                            onClick={() => openVariantModal(product)}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primaryRed text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300 cursor-pointer"
-                            aria-label={`Add ${product.name} to cart`}
-                          >
-                            <ShoppingCart size={18} />
-                          </button>
-                        </div>
-                  
-
-
+                        <button
+                          type="button"
+                          disabled={isOutOfStock}
+                          onClick={() => openVariantModal(product)}
+                          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl bg-primaryRed text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                          aria-label={`Add ${product.name} to cart`}
+                        >
+                          <ShoppingCart size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

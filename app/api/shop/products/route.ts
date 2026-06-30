@@ -12,6 +12,12 @@ export const dynamic = "force-dynamic";
 
 const API_PRICE_RANGE: [number, number] = [0, 999999999];
 
+function logTiming(label: string, startedAt: number) {
+  console.log(
+    `[shop products API] ${label}: ${(performance.now() - startedAt).toFixed(2)}ms`
+  );
+}
+
 function getSearchParamValue(
   searchParams: URLSearchParams,
   key: string
@@ -48,7 +54,11 @@ function parseApiFilters(searchParams: URLSearchParams): FilterState {
 }
 
 export async function GET(request: NextRequest) {
+  const totalStartedAt = performance.now();
+
   try {
+    const parseStartedAt = performance.now();
+
     const { searchParams } = request.nextUrl;
 
     const shopSearchParams: ShopSearchParams = {
@@ -62,6 +72,18 @@ export async function GET(request: NextRequest) {
     const sort = parseShopSort(shopSearchParams.sort);
     const page = parseShopPage(shopSearchParams.page);
 
+    logTiming("parse params", parseStartedAt);
+
+    console.log("[shop products API] request start", {
+      query,
+      filters,
+      sort,
+      page,
+      pageSize: 12,
+    });
+
+    const serviceStartedAt = performance.now();
+
     const { products, pagination } = await getShopProducts({
       query,
       filters,
@@ -69,6 +91,15 @@ export async function GET(request: NextRequest) {
       page,
       pageSize: 12,
     });
+
+    logTiming("service", serviceStartedAt);
+
+    console.log("[shop products API] request result", {
+      products: products.length,
+      pagination,
+    });
+
+    logTiming("total", totalStartedAt);
 
     return NextResponse.json({
       products,
@@ -78,7 +109,9 @@ export async function GET(request: NextRequest) {
       sort,
     });
   } catch (error) {
-    console.error("Failed to fetch shop products:", error);
+    console.error("[shop products API] failed:", error);
+
+    logTiming("failed total", totalStartedAt);
 
     return NextResponse.json(
       {

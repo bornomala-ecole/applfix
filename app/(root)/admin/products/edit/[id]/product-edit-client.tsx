@@ -44,7 +44,6 @@ type Series = {
   brandId: string;
 };
 
-
 type Props = {
   product: any;
   brands: Brand[];
@@ -65,37 +64,28 @@ export default function EditProductClient({
   // ================= BASIC INFO =================
   const [name, setName] = useState(product.name || "");
   const [slug, setSlug] = useState(product.slug || "");
-  const [description, setDescription] = useState(
-    product.description || ""
-  );
+  const [description, setDescription] = useState(product.description || "");
   const [shortDescription, setShortDescription] = useState(
     product.shortDescription || ""
   );
 
   // ================= SEO INFO =================
-  const [metaTitle, setMetaTitle] = useState(
-    product.metaTitle || ""
-  );
+  const [metaTitle, setMetaTitle] = useState(product.metaTitle || "");
   const [metaDescription, setMetaDescription] = useState(
     product.metaDescription || ""
+  );
+  const [weightGrams, setWeightGrams] = useState(
+    product.weightGrams?.toString() || ""
   );
 
   // ================= RELATIONS / STATUS =================
   const [brandId, setBrandId] = useState(product.brandId ?? "");
-  const [categoryId, setCategoryId] = useState(
-    product.categoryId ?? ""
-  );
+  const [categoryId, setCategoryId] = useState(product.categoryId ?? "");
   const [seriesId, setSeriesId] = useState(product.seriesId ?? "");
 
-  const [isActive, setIsActive] = useState(
-    product.isActive ?? true
-  );
-  const [isFeatured, setIsFeatured] = useState(
-    product.isFeatured ?? false
-  );
-  const [bestSelling, setBestSelling] = useState(
-    product.bestSelling ?? false
-  );
+  const [isActive, setIsActive] = useState(product.isActive ?? true);
+  const [isFeatured, setIsFeatured] = useState(product.isFeatured ?? false);
+  const [bestSelling, setBestSelling] = useState(product.bestSelling ?? false);
 
   // ================= VARIANTS =================
   const [variants, setVariants] = useState<Variant[]>(
@@ -146,29 +136,25 @@ export default function EditProductClient({
 
   useEffect(() => {
     if (!seriesId) return;
-  
+
     const selectedSeries = series.find((item) => item.id === seriesId);
-  
+
     if (selectedSeries && selectedSeries.brandId !== brandId) {
       setSeriesId("");
     }
   }, [brandId, seriesId, series]);
 
   const mainImage = images.find((image) => image.type === "main");
-  const galleryImages = images.filter(
-    (image) => image.type === "gallery"
-  );
+  const galleryImages = images.filter((image) => image.type === "gallery");
 
   const filteredSeries = useMemo(() => {
     if (!brandId) return [];
-  
+
     return series.filter((item) => item.brandId === brandId);
   }, [brandId, series]);
 
   // ================= IMAGE UPLOAD =================
-  async function handleMainUpload(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
+  async function handleMainUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
 
     if (!file) return;
@@ -193,9 +179,7 @@ export default function EditProductClient({
     }
   }
 
-  async function handleGalleryUpload(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
+  async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []) as File[];
 
     if (!files.length) return;
@@ -348,9 +332,15 @@ export default function EditProductClient({
     );
 
     if (invalidVariant) {
-      toast.error(
-        "Each variant needs SKU, title, valid price, and valid stock"
-      );
+      toast.error("Each variant needs SKU, title, valid price, and valid stock");
+      return;
+    }
+
+    const grams =
+      weightGrams.trim() === "" ? null : parseInt(weightGrams.trim(), 10);
+    
+    if (grams !== null && (!Number.isFinite(grams) || grams < 0)) {
+      toast.error("Weight must be a valid whole number in grams");
       return;
     }
 
@@ -363,6 +353,7 @@ export default function EditProductClient({
       shortDescription,
       metaTitle,
       metaDescription,
+      weightGrams: grams,
       brandId,
       categoryId,
       seriesId,
@@ -372,6 +363,8 @@ export default function EditProductClient({
       images,
       variants,
     };
+
+    console.log("Payload:", payload)
 
     const res = await fetch(`/api/admin/products/${product.id}`, {
       method: "PUT",
@@ -395,78 +388,72 @@ export default function EditProductClient({
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="mx-auto max-w-6xl">
         {/* HEADER */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Edit Product
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">Edit Product</h1>
 
-          <p className="text-sm text-gray-500 mt-1">
-            Update product details, images, variants, pricing, and SEO.
+          <p className="mt-1 text-sm text-gray-500">
+            Update product details, images, variants, pricing, SEO, and shipping weight.
           </p>
         </div>
 
         <form onSubmit={handleUpdate} className="space-y-6">
           {/* ================= BASIC INFO ================= */}
-          <div className="bg-white border rounded-xl p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
+          <div className="rounded-xl border bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
               Basic Information
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Product Name
                 </label>
 
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="border p-2 rounded w-full"
+                  className="w-full rounded border p-2"
                   placeholder="Product name"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Slug
                 </label>
 
                 <input
                   value={slug}
                   readOnly
-                  className="border p-2 rounded w-full bg-gray-100 text-gray-500"
+                  className="w-full rounded border bg-gray-100 p-2 text-gray-500"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Short Description
                 </label>
 
                 <textarea
                   value={shortDescription}
-                  onChange={(e) =>
-                    setShortDescription(e.target.value)
-                  }
-                  className="border p-2 rounded w-full min-h-[80px]"
+                  onChange={(e) => setShortDescription(e.target.value)}
+                  className="min-h-[80px] w-full rounded border p-2"
                   placeholder="Short summary for cards and product highlights"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Full Description
                 </label>
 
                 <textarea
                   value={description}
-                  onChange={(e) =>
-                    setDescription(e.target.value)
-                  }
-                  className="border p-2 rounded w-full min-h-[140px]"
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="min-h-[140px] w-full rounded border p-2"
                   placeholder="Full product description"
                 />
               </div>
@@ -474,53 +461,43 @@ export default function EditProductClient({
           </div>
 
           {/* ================= STATUS ================= */}
-          <div className="bg-white border rounded-xl p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
+          <div className="rounded-xl border bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
               Product Status
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <label className="flex items-center gap-3 border rounded-lg p-4 cursor-pointer">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-4">
                 <input
                   type="checkbox"
                   checked={isActive}
-                  onChange={(e) =>
-                    setIsActive(e.target.checked)
-                  }
+                  onChange={(e) => setIsActive(e.target.checked)}
                 />
 
                 <div>
-                  <p className="font-medium text-gray-900">
-                    Active Product
-                  </p>
-
+                  <p className="font-medium text-gray-900">Active Product</p>
                   <p className="text-xs text-gray-500">
                     Product will be visible in shop and product pages.
                   </p>
                 </div>
               </label>
 
-              <label className="flex items-center gap-3 border rounded-lg p-4 cursor-pointer">
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-4">
                 <input
                   type="checkbox"
                   checked={isFeatured}
-                  onChange={(e) =>
-                    setIsFeatured(e.target.checked)
-                  }
+                  onChange={(e) => setIsFeatured(e.target.checked)}
                 />
 
                 <div>
-                  <p className="font-medium text-gray-900">
-                    Featured Product
-                  </p>
-
+                  <p className="font-medium text-gray-900">Featured Product</p>
                   <p className="text-xs text-gray-500">
                     Product will appear in homepage featured section.
                   </p>
                 </div>
               </label>
 
-              <label className="flex items-center gap-3 border rounded-lg p-4 cursor-pointer">
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-4">
                 <input
                   type="checkbox"
                   checked={bestSelling}
@@ -531,32 +508,30 @@ export default function EditProductClient({
                   <p className="font-medium text-gray-900">
                     Best Selling Product
                   </p>
-
                   <p className="text-xs text-gray-500">
                     Product will appear in best-selling product sections.
                   </p>
                 </div>
               </label>
-
             </div>
           </div>
 
           {/* ================= BRAND / CATEGORY ================= */}
-          <div className="bg-white border rounded-xl p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Brand & Category
+          <div className="rounded-xl border bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
+              Brand, Series & Category
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Brand
                 </label>
 
                 <select
                   value={brandId}
                   onChange={(e) => setBrandId(e.target.value)}
-                  className="border p-2 rounded w-full"
+                  className="w-full rounded border p-2"
                 >
                   <option value="">Select Brand</option>
 
@@ -569,7 +544,7 @@ export default function EditProductClient({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Series
                 </label>
 
@@ -577,7 +552,7 @@ export default function EditProductClient({
                   value={seriesId}
                   onChange={(e) => setSeriesId(e.target.value)}
                   disabled={!brandId}
-                  className="border p-2 rounded w-full disabled:bg-gray-100 disabled:text-gray-400"
+                  className="w-full rounded border p-2 disabled:bg-gray-100 disabled:text-gray-400"
                 >
                   <option value="">
                     {brandId ? "Select Series" : "Select brand first"}
@@ -590,22 +565,20 @@ export default function EditProductClient({
                   ))}
                 </select>
 
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Series list will change based on selected brand.
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Category
                 </label>
 
                 <select
                   value={categoryId}
-                  onChange={(e) =>
-                    setCategoryId(e.target.value)
-                  }
-                  className="border p-2 rounded w-full"
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full rounded border p-2"
                 >
                   <option value="">Select Category</option>
 
@@ -620,76 +593,92 @@ export default function EditProductClient({
           </div>
 
           {/* ================= SEO ================= */}
-          <div className="bg-white border rounded-xl p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
+          <div className="rounded-xl border bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">
               SEO Information
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Meta Title
                 </label>
 
                 <input
                   value={metaTitle}
                   onChange={(e) => setMetaTitle(e.target.value)}
-                  className="border p-2 rounded w-full"
+                  className="w-full rounded border p-2"
                   placeholder="SEO title"
                 />
 
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Recommended length: around 50–60 characters.
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Meta Description
                 </label>
 
                 <textarea
                   value={metaDescription}
-                  onChange={(e) =>
-                    setMetaDescription(e.target.value)
-                  }
-                  className="border p-2 rounded w-full min-h-[90px]"
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  className="min-h-[90px] w-full rounded border p-2"
                   placeholder="SEO meta description"
                 />
 
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Recommended length: around 140–160 characters.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Weight (grams)
+                </label>
+
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  value={weightGrams}
+                  onChange={(e) => setWeightGrams(e.target.value)}
+                  placeholder="Example: 250"
+                  className="w-full rounded border p-2"
+                />
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Used later for shipping charge calculation.
                 </p>
               </div>
             </div>
           </div>
 
           {/* ================= IMAGES ================= */}
-          <div className="bg-white border rounded-xl p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Images
-            </h2>
+          <div className="rounded-xl border bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Images</h2>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Main Image
               </label>
 
               <input type="file" onChange={handleMainUpload} />
 
               {mainImage && (
-                <div className="mt-4 border rounded-xl p-4 max-w-sm">
-                  <div className="relative w-28 h-28">
+                <div className="mt-4 max-w-sm rounded-xl border p-4">
+                  <div className="relative h-28 w-28">
                     <img
                       src={mainImage.url}
                       alt={mainImage.alt || name}
-                      className="w-28 h-28 object-cover rounded border"
+                      className="h-28 w-28 rounded border object-cover"
                     />
 
                     <button
                       type="button"
                       onClick={() => handleDeleteImage(mainImage)}
-                      className="absolute -top-2 -right-2 bg-red-600 text-white w-6 h-6 rounded-full"
+                      className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-red-600 text-white"
                     >
                       ×
                     </button>
@@ -701,40 +690,36 @@ export default function EditProductClient({
                       updateImageAlt(mainImage.url, e.target.value)
                     }
                     placeholder="Alt text"
-                    className="border p-2 rounded w-full mt-3 text-sm"
+                    className="mt-3 w-full rounded border p-2 text-sm"
                   />
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Gallery Images
               </label>
 
-              <input
-                type="file"
-                multiple
-                onChange={handleGalleryUpload}
-              />
+              <input type="file" multiple onChange={handleGalleryUpload} />
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
                 {galleryImages.map((image, index) => (
                   <div
                     key={`${image.url}-${index}`}
-                    className="border rounded-xl p-3"
+                    className="rounded-xl border p-3"
                   >
-                    <div className="relative w-full aspect-square">
+                    <div className="relative aspect-square w-full">
                       <img
                         src={image.url}
                         alt={image.alt || name}
-                        className="w-full h-full object-cover rounded border"
+                        className="h-full w-full rounded border object-cover"
                       />
 
                       <button
                         type="button"
                         onClick={() => handleDeleteImage(image)}
-                        className="absolute -top-2 -right-2 bg-red-600 text-white w-6 h-6 rounded-full"
+                        className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-red-600 text-white"
                       >
                         ×
                       </button>
@@ -746,20 +731,17 @@ export default function EditProductClient({
                         updateImageAlt(image.url, e.target.value)
                       }
                       placeholder="Alt text"
-                      className="border p-2 rounded w-full mt-2 text-xs"
+                      className="mt-2 w-full rounded border p-2 text-xs"
                     />
 
                     <input
                       type="number"
                       value={image.sortOrder}
                       onChange={(e) =>
-                        updateImageSortOrder(
-                          image.url,
-                          Number(e.target.value)
-                        )
+                        updateImageSortOrder(image.url, Number(e.target.value))
                       }
                       placeholder="Sort order"
-                      className="border p-2 rounded w-full mt-2 text-xs"
+                      className="mt-2 w-full rounded border p-2 text-xs"
                     />
                   </div>
                 ))}
@@ -768,16 +750,14 @@ export default function EditProductClient({
           </div>
 
           {/* ================= VARIANTS ================= */}
-          <div className="bg-white border rounded-xl p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-900">
-                Variants
-              </h2>
+          <div className="rounded-xl border bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Variants</h2>
 
               <button
                 type="button"
                 onClick={addVariant}
-                className="text-sm bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
+                className="rounded bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
               >
                 + Add Variant
               </button>
@@ -787,9 +767,9 @@ export default function EditProductClient({
               {variants.map((variant, index) => (
                 <div
                   key={variant.id || index}
-                  className="border rounded-xl p-4"
+                  className="rounded-xl border p-4"
                 >
-                  <div className="flex justify-between items-center mb-3">
+                  <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">
                       Variant #{index + 1}
                     </h3>
@@ -803,9 +783,9 @@ export default function EditProductClient({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         SKU
                       </label>
 
@@ -815,12 +795,12 @@ export default function EditProductClient({
                         onChange={(e) =>
                           updateVariant(index, "sku", e.target.value)
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         Title
                       </label>
 
@@ -828,18 +808,14 @@ export default function EditProductClient({
                         placeholder="128GB"
                         value={variant.title}
                         onChange={(e) =>
-                          updateVariant(
-                            index,
-                            "title",
-                            e.target.value
-                          )
+                          updateVariant(index, "title", e.target.value)
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         Color
                       </label>
 
@@ -847,18 +823,14 @@ export default function EditProductClient({
                         placeholder="Black"
                         value={variant.color}
                         onChange={(e) =>
-                          updateVariant(
-                            index,
-                            "color",
-                            e.target.value
-                          )
+                          updateVariant(index, "color", e.target.value)
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         Stock
                       </label>
 
@@ -867,18 +839,14 @@ export default function EditProductClient({
                         placeholder="Stock"
                         value={variant.stock}
                         onChange={(e) =>
-                          updateVariant(
-                            index,
-                            "stock",
-                            Number(e.target.value)
-                          )
+                          updateVariant(index, "stock", Number(e.target.value))
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         Price
                       </label>
 
@@ -887,18 +855,14 @@ export default function EditProductClient({
                         placeholder="Price"
                         value={variant.price}
                         onChange={(e) =>
-                          updateVariant(
-                            index,
-                            "price",
-                            Number(e.target.value)
-                          )
+                          updateVariant(index, "price", Number(e.target.value))
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         Compare Price
                       </label>
 
@@ -910,17 +874,15 @@ export default function EditProductClient({
                           updateVariant(
                             index,
                             "comparePrice",
-                            e.target.value
-                              ? Number(e.target.value)
-                              : null
+                            e.target.value ? Number(e.target.value) : null
                           )
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         Cost Price
                       </label>
 
@@ -932,17 +894,15 @@ export default function EditProductClient({
                           updateVariant(
                             index,
                             "costPrice",
-                            e.target.value
-                              ? Number(e.target.value)
-                              : null
+                            e.target.value ? Number(e.target.value) : null
                           )
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
                         Low Stock Alert
                       </label>
 
@@ -957,21 +917,17 @@ export default function EditProductClient({
                             Number(e.target.value)
                           )
                         }
-                        className="border p-2 rounded w-full"
+                        className="w-full rounded border p-2"
                       />
                     </div>
                   </div>
 
-                  <label className="flex items-center gap-2 mt-4 text-sm">
+                  <label className="mt-4 flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={variant.isActive}
                       onChange={(e) =>
-                        updateVariant(
-                          index,
-                          "isActive",
-                          e.target.checked
-                        )
+                        updateVariant(index, "isActive", e.target.checked)
                       }
                     />
 
@@ -985,7 +941,7 @@ export default function EditProductClient({
           {/* ================= SUBMIT ================= */}
           <button
             disabled={loading}
-            className="bg-black text-white p-3 w-full rounded-lg hover:bg-gray-800 disabled:opacity-50"
+            className="w-full rounded-lg bg-black p-3 text-white hover:bg-gray-800 disabled:opacity-50"
           >
             {loading ? "Updating..." : "Update Product"}
           </button>

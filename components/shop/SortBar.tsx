@@ -1,13 +1,11 @@
 "use client";
 
+import { Grid, List, Loader2 } from "lucide-react";
 import { SortOption, sortOptions } from "@/lib/types/shop";
-import { Grid, List } from "lucide-react";
-import { Loader2 } from "lucide-react";
 
 interface SortBarProps {
   currentSort: SortOption;
   onSortChange: (sort: SortOption) => void;
-  totalResults: number;
   viewMode: "grid" | "list";
   onViewModeChange: (mode: "grid" | "list") => void;
   isPending?: boolean;
@@ -16,7 +14,6 @@ interface SortBarProps {
 export default function SortBar({
   currentSort,
   onSortChange,
-  totalResults,
   viewMode,
   onViewModeChange,
   isPending = false,
@@ -26,7 +23,12 @@ export default function SortBar({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-gray-950">
-            {totalResults} {totalResults === 1 ? "product" : "products"} found
+            Products
+            {isPending && (
+              <span className="ml-2 text-xs font-medium text-gray-500">
+                updating...
+              </span>
+            )}
           </p>
 
           <p className="mt-0.5 text-xs text-gray-500">

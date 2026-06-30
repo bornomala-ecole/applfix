@@ -13,9 +13,9 @@ export const sortOptions: Record<SortOption, string> = {
 
 export interface FilterState {
   brands: string[];
+  categories: string[];
   priceRange: [number, number];
   onSale: boolean;
-  categories: string[];
 }
 
 export interface BrandFilterOption {
@@ -24,11 +24,13 @@ export interface BrandFilterOption {
   count: number;
 }
 
-export type CategoryFilterOption = {
+export interface CategoryFilterOption {
   id: string;
   name: string;
   count: number;
-};
+}
+
+export type ShopProductBadge = "Sale" | "New" | "Featured" | "Out of Stock";
 
 export type ShopProductVariant = {
   id: string;
@@ -44,8 +46,10 @@ export type ShopProduct = {
   id: string;
   name: string;
   slug: string;
+
   image: string;
   imageAlt: string;
+
   brand: string;
   category?: string;
   shortDescription?: string | null;
@@ -54,14 +58,21 @@ export type ShopProduct = {
   originalPrice?: number | null;
   stock: number;
   variantTitle: string;
-  badge?: "Sale" | "New" | "Featured" | "Out of Stock";
+  badge?: ShopProductBadge;
 
+  /**
+   * Keep this field for compatibility with existing frontend code.
+   *
+   * For the optimized shop list, this should be an empty array.
+   * Full variants should be fetched lazily only when the user opens
+   * the add-to-cart modal or product details.
+   */
   variants: ShopProductVariant[];
 };
 
 export interface ShopPagination {
   currentPage: number;
   pageSize: number;
-  totalProducts: number;
-  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
 }

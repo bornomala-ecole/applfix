@@ -1,0 +1,6 @@
+-- This is an empty migration.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS "Product_productSearchText_trgm_idx"
+ON "Product"
+USING GIN ("productSearchText" gin_trgm_ops);

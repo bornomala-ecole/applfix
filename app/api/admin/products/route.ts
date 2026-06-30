@@ -1,18 +1,18 @@
-// api/admin/products/route.ts 
-import { prisma } from "@/lib/prisma"
-import { generateUniqueSlug } from "@/lib/utils/slugify"
+import { prisma } from "@/lib/prisma";
+import { generateUniqueSlug } from "@/lib/utils/slugify";
+import { buildProductSearchText } from "@/lib/utils/productSearchText";
 
 function makeSku(value: string) {
   return value
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
+    .replace(/[^a-z0-9-]/g, "");
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json()
+    const body = await req.json();
 
     if (!body.name?.trim()) {
       return Response.json(
@@ -21,23 +21,40 @@ export async function POST(req: Request) {
           message: "Product name is required",
         },
         { status: 400 }
-      )
+      );
     }
 
-    const slugBase = body.slug?.trim() || body.name.trim()
-    const slug = await generateUniqueSlug(slugBase)
+    const slugBase = body.slug?.trim() || body.name.trim();
+    const slug = await generateUniqueSlug(slugBase);
 
     const brandId = body.brandId?.trim?.()
       ? String(body.brandId).trim()
-      : null
+      : null;
 
     const categoryId = body.categoryId?.trim?.()
       ? String(body.categoryId).trim()
-      : null
+      : null;
 
     const seriesId = body.seriesId?.trim?.()
       ? String(body.seriesId).trim()
-      : null
+      : null;
+
+    const weightGrams =
+      body.weightGrams === "" ||
+      body.weightGrams === null ||
+      body.weightGrams === undefined
+        ? null
+        : Number(body.weightGrams);
+
+    if (weightGrams !== null && (!Number.isFinite(weightGrams) || weightGrams < 0)) {
+      return Response.json(
+        {
+          success: false,
+          message: "Weight must be a valid positive number in grams.",
+        },
+        { status: 400 }
+      );
+    }
 
     if (seriesId && !brandId) {
       return Response.json(
@@ -46,7 +63,7 @@ export async function POST(req: Request) {
           message: "Brand is required when selecting a series.",
         },
         { status: 400 }
-      )
+      );
     }
 
     if (seriesId) {
@@ -58,7 +75,7 @@ export async function POST(req: Request) {
           id: true,
           brandId: true,
         },
-      })
+      });
 
       if (!selectedSeries) {
         return Response.json(
@@ -67,7 +84,7 @@ export async function POST(req: Request) {
             message: "Selected series does not exist.",
           },
           { status: 400 }
-        )
+        );
       }
 
       if (selectedSeries.brandId !== brandId) {
@@ -77,13 +94,11 @@ export async function POST(req: Request) {
             message: "Selected series does not belong to selected brand.",
           },
           { status: 400 }
-        )
+        );
       }
     }
 
-    const incomingVariants = Array.isArray(body.variants)
-      ? body.variants
-      : []
+    const incomingVariants = Array.isArray(body.variants) ? body.variants : [];
 
     if (incomingVariants.length === 0) {
       return Response.json(
@@ -92,17 +107,17 @@ export async function POST(req: Request) {
           message: "At least one variant is required.",
         },
         { status: 400 }
-      )
+      );
     }
 
     const normalizedVariants = incomingVariants.map(
       (variant: any, index: number) => {
-        const title = String(variant.title || "Default").trim()
-        const color = String(variant.color || "").trim()
+        const title = String(variant.title || "Default").trim();
+        const color = String(variant.color || "").trim();
 
         const fallbackSku = makeSku(
           `${slug}-${title || "default"}-${color || index + 1}`
-        )
+        );
 
         return {
           sku: String(variant.sku || fallbackSku).trim(),
@@ -122,16 +137,12 @@ export async function POST(req: Request) {
               ? null
               : Number(variant.costPrice),
           stock: Number(variant.stock || 0),
-          lowStockThreshold: Number(
-            variant.lowStockThreshold ?? 5
-          ),
+          lowStockThreshold: Number(variant.lowStockThreshold ?? 5),
           isActive:
-            variant.isActive === undefined
-              ? true
-              : Boolean(variant.isActive),
-        }
+            variant.isActive === undefined ? true : Boolean(variant.isActive),
+        };
       }
-    )
+    );
 
     const invalidVariant = normalizedVariants.find(
       (variant: any) =>
@@ -140,7 +151,7 @@ export async function POST(req: Request) {
         variant.price < 0 ||
         variant.stock < 0 ||
         variant.lowStockThreshold < 0
-    )
+    );
 
     if (invalidVariant) {
       return Response.json(
@@ -150,15 +161,12 @@ export async function POST(req: Request) {
             "Each variant needs SKU, title, valid price, valid stock, and valid low stock threshold.",
         },
         { status: 400 }
-      )
+      );
     }
 
-    const incomingSkus = normalizedVariants.map(
-      (variant: any) => variant.sku
-    )
+    const incomingSkus = normalizedVariants.map((variant: any) => variant.sku);
 
-    const hasDuplicateSku =
-      new Set(incomingSkus).size !== incomingSkus.length
+    const hasDuplicateSku = new Set(incomingSkus).size !== incomingSkus.length;
 
     if (hasDuplicateSku) {
       return Response.json(
@@ -167,7 +175,7 @@ export async function POST(req: Request) {
           message: "Duplicate SKU found in variants.",
         },
         { status: 400 }
-      )
+      );
     }
 
     const duplicateSku = await prisma.productVariant.findFirst({
@@ -179,7 +187,7 @@ export async function POST(req: Request) {
       select: {
         sku: true,
       },
-    })
+    });
 
     if (duplicateSku) {
       return Response.json(
@@ -188,15 +196,15 @@ export async function POST(req: Request) {
           message: `SKU already exists: ${duplicateSku.sku}`,
         },
         { status: 400 }
-      )
+      );
     }
 
     const variantKeys = normalizedVariants.map((variant: any) => {
-      return `${variant.title.toLowerCase()}::${variant.color || ""}`
-    })
+      return `${variant.title.toLowerCase()}::${variant.color || ""}`;
+    });
 
     const hasDuplicateVariant =
-      new Set(variantKeys).size !== variantKeys.length
+      new Set(variantKeys).size !== variantKeys.length;
 
     if (hasDuplicateVariant) {
       return Response.json(
@@ -206,12 +214,10 @@ export async function POST(req: Request) {
             "Duplicate variant found. Title and color combination must be unique.",
         },
         { status: 400 }
-      )
+      );
     }
 
-    const incomingImages = Array.isArray(body.images)
-      ? body.images
-      : []
+    const incomingImages = Array.isArray(body.images) ? body.images : [];
 
     const normalizedImages = incomingImages
       .filter((image: any) => image.url)
@@ -221,10 +227,37 @@ export async function POST(req: Request) {
         alt: image.alt || body.name,
         type: image.type === "main" ? "main" : "gallery",
         sortOrder:
-          typeof image.sortOrder === "number"
-            ? image.sortOrder
-            : index,
-      }))
+          typeof image.sortOrder === "number" ? image.sortOrder : index,
+      }));
+
+    const [brand, category, series] = await Promise.all([
+      brandId
+        ? prisma.brand.findUnique({
+            where: { id: brandId },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+      categoryId
+        ? prisma.category.findUnique({
+            where: { id: categoryId },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+      seriesId
+        ? prisma.series.findUnique({
+            where: { id: seriesId },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const productSearchText = buildProductSearchText({
+      name: String(body.name).trim(),
+      brandName: brand?.name || null,
+      categoryName: category?.name || null,
+      seriesName: series?.name || null,
+      variants: normalizedVariants,
+    });
 
     const product = await prisma.product.create({
       data: {
@@ -236,6 +269,9 @@ export async function POST(req: Request) {
 
         metaTitle: body.metaTitle || null,
         metaDescription: body.metaDescription || null,
+
+        productSearchText,
+        weightGrams,
 
         brand: brandId
           ? {
@@ -262,9 +298,7 @@ export async function POST(req: Request) {
           : undefined,
 
         isActive:
-          body.isActive === undefined
-            ? true
-            : Boolean(body.isActive),
+          body.isActive === undefined ? true : Boolean(body.isActive),
 
         isFeatured: Boolean(body.isFeatured),
         bestSelling: Boolean(body.bestSelling),
@@ -302,15 +336,15 @@ export async function POST(req: Request) {
         images: true,
         variants: true,
       },
-    })
+    });
 
     return Response.json({
       success: true,
       message: "Product created successfully",
       product,
-    })
+    });
   } catch (error) {
-    console.error("PRODUCT CREATE ERROR:", error)
+    console.error("PRODUCT CREATE ERROR:", error);
 
     return Response.json(
       {
@@ -318,6 +352,6 @@ export async function POST(req: Request) {
         message: "Error creating product",
       },
       { status: 500 }
-    )
+    );
   }
 }

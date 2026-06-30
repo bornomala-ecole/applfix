@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generateUniqueSlug } from "@/lib/utils/slugify";
+import { buildProductSearchText } from "@/lib/utils/productSearchText";
 import { revalidatePath } from "next/cache";
 
 // ======================
@@ -74,18 +75,25 @@ export async function PUT(
     const { id } = await params;
 
     const brandId = body.brandId?.trim?.()
-    ? String(body.brandId).trim()
-    : null;
-  
+      ? String(body.brandId).trim()
+      : null;
+
     const categoryId = body.categoryId?.trim?.()
       ? String(body.categoryId).trim()
       : null;
-    
+
     const seriesId = body.seriesId?.trim?.()
       ? String(body.seriesId).trim()
       : null;
-    
+
     const bestSelling = Boolean(body.bestSelling);
+
+    const weightGrams =
+    body.weightGrams === "" ||
+    body.weightGrams === null ||
+    body.weightGrams === undefined
+      ? null
+      : parseInt(String(body.weightGrams), 10);
 
     if (!body.name?.trim()) {
       return Response.json(
@@ -116,7 +124,7 @@ export async function PUT(
         { status: 400 }
       );
     }
-    
+
     if (seriesId) {
       const selectedSeries = await prisma.series.findUnique({
         where: {
@@ -125,9 +133,10 @@ export async function PUT(
         select: {
           id: true,
           brandId: true,
+          name: true,
         },
       });
-    
+
       if (!selectedSeries) {
         return Response.json(
           {
@@ -137,7 +146,7 @@ export async function PUT(
           { status: 400 }
         );
       }
-    
+
       if (selectedSeries.brandId !== brandId) {
         return Response.json(
           {
@@ -149,8 +158,24 @@ export async function PUT(
       }
     }
 
+    const currentProduct = await prisma.product.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        slug: true,
+      },
+    });
 
-
+    if (!currentProduct) {
+      return Response.json(
+        {
+          success: false,
+          message: "Product not found.",
+        },
+        { status: 404 }
+      );
+    }
 
     const slug = await generateUniqueSlug(body.slug, id);
 
@@ -176,9 +201,7 @@ export async function PUT(
         const title = String(variant.title || "Default").trim();
         const color = String(variant.color || "").trim();
 
-        const fallbackSku = `${slug}-${title || "default"}-${
-          color || index + 1
-        }`
+        const fallbackSku = `${slug}-${title || "default"}-${color || index + 1}`
           .toLowerCase()
           .replace(/\s+/g, "-")
           .replace(/[^a-z0-9-]/g, "");
@@ -202,9 +225,7 @@ export async function PUT(
               ? null
               : Number(variant.costPrice),
           stock: Number(variant.stock || 0),
-          lowStockThreshold: Number(
-            variant.lowStockThreshold ?? 5
-          ),
+          lowStockThreshold: Number(variant.lowStockThreshold ?? 5),
           isActive: Boolean(variant.isActive),
         };
       }
@@ -231,12 +252,9 @@ export async function PUT(
     }
 
     // Check duplicate SKU inside same request
-    const incomingSkus = normalizedVariants.map(
-      (variant: any) => variant.sku
-    );
+    const incomingSkus = normalizedVariants.map((variant: any) => variant.sku);
 
-    const hasDuplicateSku =
-      new Set(incomingSkus).size !== incomingSkus.length;
+    const hasDuplicateSku = new Set(incomingSkus).size !== incomingSkus.length;
 
     if (hasDuplicateSku) {
       return Response.json(
@@ -257,9 +275,7 @@ export async function PUT(
       },
     });
 
-    const existingVariantIds = existingVariants.map(
-      (variant) => variant.id
-    );
+    const existingVariantIds = existingVariants.map((variant) => variant.id);
 
     const incomingExistingVariantIds = normalizedVariants
       .filter((variant: any) => variant.id)
@@ -324,14 +340,43 @@ export async function PUT(
         alt: image.alt || body.name,
         type: image.type === "main" ? "main" : "gallery",
         sortOrder:
-          typeof image.sortOrder === "number"
-            ? image.sortOrder
-            : index,
+          typeof image.sortOrder === "number" ? image.sortOrder : index,
       }));
+
+    const [brand, category, series] = await Promise.all([
+      brandId
+        ? prisma.brand.findUnique({
+            where: { id: brandId },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+      categoryId
+        ? prisma.category.findUnique({
+            where: { id: categoryId },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+      seriesId
+        ? prisma.series.findUnique({
+            where: { id: seriesId },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const productSearchText = buildProductSearchText({
+      name: String(body.name).trim(),
+      brandName: brand?.name || null,
+      categoryName: category?.name || null,
+      seriesName: series?.name || null,
+      variants: normalizedVariants,
+    });
 
     // =========================
     // UPDATE EVERYTHING IN TRANSACTION
     // =========================
+
+    // console.log("weightGrams from route:", weightGrams)
     const product = await prisma.$transaction(async (tx) => {
       // =========================
       // 1. UPDATE MAIN PRODUCT
@@ -341,12 +386,14 @@ export async function PUT(
           id,
         },
         data: {
-          name: body.name,
+          name: String(body.name).trim(),
           slug,
           description: body.description || null,
           shortDescription: body.shortDescription || null,
           metaTitle: body.metaTitle || null,
           metaDescription: body.metaDescription || null,
+          productSearchText,
+          weightGrams,
           brandId,
           categoryId,
           seriesId,
@@ -384,8 +431,7 @@ export async function PUT(
       // Do not blindly delete variants used in order history.
       // =========================
       const variantsToRemove = existingVariants.filter(
-        (variant) =>
-          !incomingExistingVariantIds.includes(variant.id)
+        (variant) => !incomingExistingVariantIds.includes(variant.id)
       );
 
       for (const variantToRemove of variantsToRemove) {
@@ -449,6 +495,8 @@ export async function PUT(
 
     revalidatePath("/");
     revalidatePath("/shop");
+    revalidatePath(`/product/${currentProduct.slug}`);
+    revalidatePath(`/product/${slug}`);
 
     return Response.json({
       success: true,

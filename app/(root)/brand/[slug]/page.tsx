@@ -117,12 +117,6 @@ export default async function BrandPage({
               </div>
             </div>
 
-            <div className="rounded-2xl bg-gray-50 px-5 py-4 text-sm text-gray-600">
-              <span className="font-semibold text-gray-950">
-                {pagination.totalProducts}
-              </span>{" "}
-              products found
-            </div>
           </div>
         </div>
 

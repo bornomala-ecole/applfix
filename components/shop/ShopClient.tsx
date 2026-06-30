@@ -276,7 +276,6 @@ export default function ShopClient({
           <SortBar
             currentSort={sort}
             onSortChange={handleSortChange}
-            totalResults={shopPagination.totalProducts}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             isPending={isLoading}
