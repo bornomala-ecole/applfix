@@ -8,19 +8,21 @@ import BrandSeriesMenu from "@/components/home/BrandSeriesMenu";
 import Image from "next/image";
 import BrandCarousel from "@/components/home/BrandCarousel";
 import BestSellerProducts from "@/components/home/BestSellers";
+import CategoryCarousel from "@/components/home/CategoryCarousel";
 
 export default function Home() {
   return (
     <>
       <HeroSlider />
       <BrandSeriesMenu />
+      <CategoryCarousel />
       <FeaturedProducts />
       <BrandCarousel />
       <BestSellerProducts />
       <OurServices />
-      <Testimonials />
+      {/* <Testimonials /> */}
       {/* <LatestNews /> */}
-      <Newsletter />
+      {/* <Newsletter /> */}
     </>
   );
 }

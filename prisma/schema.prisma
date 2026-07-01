@@ -170,16 +170,24 @@ model Series {
   @@index([sortOrder])
 }
 
+
 model Category {
-  id   String @id @default(cuid())
-  name String @unique
+  id   String  @id @default(cuid())
+  name String  @unique
+  slug String? @unique
+
+  image         String?
+  imagePublicId String?
+
+  sortOrder Int @default(0)
 
   products Product[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
 
+  @@index([sortOrder])
+}
 //
 // 📱 PRODUCT
 // Example: iPhone 15, Galaxy S24

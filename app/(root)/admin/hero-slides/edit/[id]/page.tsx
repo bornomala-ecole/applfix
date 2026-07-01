@@ -213,26 +213,33 @@ export default function EditHeroSlidePage() {
 
   async function cleanupReplacedImages() {
     if (!originalSlide) return;
-
+  
     const cleanupPublicIds: string[] = [];
-
-    const desktopChanged =
-      originalSlide.imageDesktopPublicId &&
-      desktopImage?.publicId &&
-      desktopImage.publicId !== originalSlide.imageDesktopPublicId;
-
-    if (desktopChanged) {
-      cleanupPublicIds.push(originalSlide.imageDesktopPublicId);
+  
+    const originalDesktopPublicId = originalSlide.imageDesktopPublicId;
+    const currentDesktopPublicId = desktopImage?.publicId;
+  
+    if (
+      typeof originalDesktopPublicId === "string" &&
+      originalDesktopPublicId.length > 0 &&
+      typeof currentDesktopPublicId === "string" &&
+      currentDesktopPublicId.length > 0 &&
+      currentDesktopPublicId !== originalDesktopPublicId
+    ) {
+      cleanupPublicIds.push(originalDesktopPublicId);
     }
-
-    const mobileChangedOrRemoved =
-      originalSlide.imageMobilePublicId &&
-      originalSlide.imageMobilePublicId !== mobileImage?.publicId;
-
-    if (mobileChangedOrRemoved) {
-      cleanupPublicIds.push(originalSlide.imageMobilePublicId);
+  
+    const originalMobilePublicId = originalSlide.imageMobilePublicId;
+    const currentMobilePublicId = mobileImage?.publicId;
+  
+    if (
+      typeof originalMobilePublicId === "string" &&
+      originalMobilePublicId.length > 0 &&
+      originalMobilePublicId !== currentMobilePublicId
+    ) {
+      cleanupPublicIds.push(originalMobilePublicId);
     }
-
+  
     if (cleanupPublicIds.length > 0) {
       await Promise.allSettled(
         cleanupPublicIds.map((publicId) => deleteCloudinaryImage(publicId))
