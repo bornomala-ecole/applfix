@@ -1,151 +1,135 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { useSession, signOut } from "next-auth/react"
-import Link from "next/link"
-import Image from "next/image"
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+
 import {
   getGuestCart,
   getGuestCartCount,
   clearGuestCart,
 } from "@/lib/cart/guestCart";
 
-
-
 import {
-  User,
-  Heart,
   ShoppingCart,
   CircleUser,
   LogIn,
-  UserPlus,
   LayoutDashboard,
   LogOut,
   Search,
   Menu,
-  X
-} from "lucide-react"
+} from "lucide-react";
 
-import CartDrawer from "../cart/CartDrawer"
-import MobileMenuDrawer from "./MobileMenuDrawer"
+import CartDrawer from "../cart/CartDrawer";
+import MobileMenuDrawer from "./MobileMenuDrawer";
 
 const GUEST_CART_SYNC_LOCK = "guest_cart_sync_in_progress";
 
 export default function Header() {
-  const { data: session, status } = useSession()
+  const router = useRouter();
+  const { data: session, status } = useSession();
 
-  const [showUserItems, setShowUserItems] = useState(false)
-  const [showCart, setShowCart] = useState(false)
-  const [showMobileMenu, setShowMobileMenu] = useState(false)
-  const [isScrolled, setIsScrolled] = useState(false)
+  const [showUserItems, setShowUserItems] = useState(false);
+  const [showCart, setShowCart] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const [cartCount, setCartCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
+  const userRef = useRef<HTMLDivElement | null>(null);
 
-  const userRef = useRef<HTMLDivElement | null>(null)
-
-  // =========================
-  // 🎯 ROLE BASED DASHBOARD
-  // =========================
   const getDashboardLink = () => {
-    const role = session?.user?.role
+    const role = session?.user?.role;
 
     if (role === "ADMIN" || role === "SUPER_ADMIN") {
-      return "/admin/dashboard"
+      return "/admin/dashboard";
     }
 
     if (role === "MANAGER") {
-      return "/manager/dashboard"
+      return "/manager/dashboard";
     }
 
-    return "/dashboard"
+    return "/dashboard";
+  };
+
+  const toggleUserItems = () => setShowUserItems((prev) => !prev);
+  const toggleCart = () => setShowCart((prev) => !prev);
+  const toggleMobileMenu = () => setShowMobileMenu((prev) => !prev);
+
+  const closeUserMenu = () => setShowUserItems(false);
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const cleanQuery = searchQuery.trim();
+
+    if (!cleanQuery) {
+      router.push("/search");
+      return;
+    }
+
+    router.push(`/search?q=${encodeURIComponent(cleanQuery)}`);
   }
 
-  const toggleUserItems = () => setShowUserItems((prev) => !prev)
-  const toggleCart = () => setShowCart((prev) => !prev)
-  const toggleMobileMenu = () => setShowMobileMenu((prev) => !prev)
-
-  const closeUserMenu = () => setShowUserItems(false)
-
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userRef.current && !userRef.current.contains(event.target as Node)) {
-        setShowUserItems(false)
+        setShowUserItems(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  // Scroll effect
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20)
-    }
+      setIsScrolled(window.scrollY > 20);
+    };
 
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    handleScroll()
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
 
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
-  /*
-  async function loadCartCount() {
-    if (!session) {
-      setCartCount(0);
-      return;
-    }
-  
-    const res = await fetch("/api/cart", {
-      cache: "no-store",
-    });
-  
-    if (!res.ok) {
-      setCartCount(0);
-      return;
-    }
-  
-    const data = await res.json();
-    setCartCount(data.count || 0);
-  }
-    */
   async function loadCartCount() {
     if (status === "loading") return;
-  
+
     if (status !== "authenticated") {
       setCartCount(getGuestCartCount());
       return;
     }
-  
+
     const res = await fetch("/api/cart", {
       cache: "no-store",
     });
-  
+
     if (!res.ok) {
       setCartCount(0);
       return;
     }
-  
+
     const data = await res.json();
     setCartCount(data.count || 0);
   }
-  
+
   async function syncGuestCartToDatabase() {
     if (status !== "authenticated") return;
-  
+
     const guestCart = getGuestCart();
-  
+
     if (!guestCart.length) return;
-  
-    // Prevent duplicate sync in React Strict Mode / re-render
+
     if (localStorage.getItem(GUEST_CART_SYNC_LOCK) === "true") {
       return;
     }
-  
+
     localStorage.setItem(GUEST_CART_SYNC_LOCK, "true");
-  
+
     try {
       for (const item of guestCart) {
         await fetch("/api/cart", {
@@ -160,7 +144,7 @@ export default function Header() {
           }),
         });
       }
-  
+
       clearGuestCart();
       window.dispatchEvent(new Event("cart-updated"));
     } catch (error) {
@@ -170,31 +154,29 @@ export default function Header() {
     }
   }
 
-
   useEffect(() => {
     async function run() {
       if (status === "loading") return;
-  
+
       if (status === "authenticated") {
         await syncGuestCartToDatabase();
       }
-  
+
       await loadCartCount();
     }
-  
+
     run();
-  
+
     const handleCartUpdated = () => {
       loadCartCount();
     };
-  
+
     window.addEventListener("cart-updated", handleCartUpdated);
-  
+
     return () => {
       window.removeEventListener("cart-updated", handleCartUpdated);
     };
   }, [status]);
-
 
   return (
     <>
@@ -204,14 +186,13 @@ export default function Header() {
         }`}
       >
         {!isScrolled && (
-          <div className="top_bar bg-primaryRed text-white py-1 text-center">
+          <div className="top_bar bg-primaryRed py-1 text-center text-white">
             <div className="container">
               <p>Special announcement/discount will be here...</p>
             </div>
           </div>
         )}
 
-        {/* Middle Header */}
         <div
           className={`header_middile transition-all duration-300 ${
             isScrolled ? "bg-[#ddd] py-1" : "py-2"
@@ -219,18 +200,16 @@ export default function Header() {
         >
           <div className="container">
             <header
-              className={`flex justify-between gap-6 items-center transition-all duration-300 ${
+              className={`flex items-center justify-between gap-6 transition-all duration-300 ${
                 isScrolled ? "py-1" : "py-4"
               }`}
             >
-              {/* Mobile Menu */}
-              <div className="nav_left lg:hidden flex gap-3 items-center">
+              <div className="nav_left flex items-center gap-3 lg:hidden">
                 <button type="button" onClick={toggleMobileMenu}>
-                  <Menu className="cursor-pointer hover:text-red-600 w-6 h-6" />
+                  <Menu className="h-6 w-6 cursor-pointer hover:text-red-600" />
                 </button>
               </div>
 
-              {/* Logo */}
               <Link href="/">
                 <Image
                   src="/images/logo.png"
@@ -243,86 +222,85 @@ export default function Header() {
                 />
               </Link>
 
-              {/* Search */}
               <div className="search hidden lg:block">
-                <form>
+                <form
+                  onSubmit={handleSearchSubmit}
+                  className="relative flex items-center"
+                >
+                  <Search
+                    size={17}
+                    className="pointer-events-none absolute left-3 text-gray-400"
+                  />
+
                   <input
-                    className={`rounded px-4 ${
+                    className={`rounded border pl-10 pr-4 outline-none transition focus:border-primaryRed focus:ring-2 focus:ring-red-100 ${
                       isScrolled ? "py-1" : "py-2"
-                    } border`}
-                    type="text"
-                    placeholder="Search ..."
+                    }`}
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search products..."
+                    aria-label="Search products"
                   />
                 </form>
               </div>
 
-              {/* Right Icons */}
               <div className="nav-right">
-                <div className="flex gap-2 items-center">
-                <button
-                  type="button"
-                  onClick={toggleCart}
-                  className="relative"
-                >
-                  <ShoppingCart className="cursor-pointer hover:text-red-600 w-6 h-6" />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleCart}
+                    className="relative"
+                  >
+                    <ShoppingCart className="h-6 w-6 cursor-pointer hover:text-red-600" />
 
-                  {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 min-w-5 h-5 rounded-full bg-primaryRed text-white text-[11px] flex items-center justify-center px-1">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
+                    {cartCount > 0 && (
+                      <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primaryRed px-1 text-[11px] text-white">
+                        {cartCount}
+                      </span>
+                    )}
+                  </button>
 
-                  {/* User Dropdown */}
                   <div className="group relative z-20" ref={userRef}>
                     <CircleUser
                       onClick={toggleUserItems}
-                      className="cursor-pointer hover:text-red-600 w-6 h-6"
+                      className="h-6 w-6 cursor-pointer hover:text-red-600"
                     />
 
                     {showUserItems && (
-                      <div className="absolute top-[90%] pt-3 right-0 w-[200px]">
+                      <div className="absolute right-0 top-[90%] w-[200px] pt-3">
                         {session ? (
-                          <div className="bg-gray-600 text-white px-4 py-2 rounded">
+                          <div className="rounded bg-gray-600 px-4 py-2 text-white">
                             <Link
                               onClick={closeUserMenu}
-                              className="border-b pb-2 mb-2 hover:text-primaryRed flex gap-2 items-center"
+                              className="mb-2 flex items-center gap-2 border-b pb-2 hover:text-primaryRed"
                               href={getDashboardLink()}
                             >
-                              <LayoutDashboard className="w-6 h-6" />
+                              <LayoutDashboard className="h-6 w-6" />
                               Dashboard
                             </Link>
 
                             <button
-                              className="hover:text-primaryRed cursor-pointer flex gap-2 items-center"
+                              className="flex cursor-pointer items-center gap-2 hover:text-primaryRed"
                               onClick={() => {
-                                setShowUserItems(false)
-                                signOut()
+                                setShowUserItems(false);
+                                signOut();
                               }}
                             >
-                              <LogOut className="w-6 h-6" />
+                              <LogOut className="h-6 w-6" />
                               Logout
                             </button>
                           </div>
                         ) : (
-                          <div className="bg-gray-600 text-white px-4 py-2 rounded flex flex-col">
+                          <div className="flex flex-col rounded bg-gray-600 px-4 py-2 text-white">
                             <Link
                               onClick={closeUserMenu}
-                              className="border-b pb-2 mb-2 flex gap-2 items-center hover:text-primaryRed"
+                              className="mb-2 flex items-center gap-2 border-b pb-2 hover:text-primaryRed"
                               href="/login"
                             >
-                              <LogIn className="w-6 h-6" />
+                              <LogIn className="h-6 w-6" />
                               Login
                             </Link>
-
-                            {/* <Link
-                              onClick={closeUserMenu}
-                              className="flex gap-2 items-center hover:text-primaryRed"
-                              href="/register"
-                            >
-                              <UserPlus className="w-6 h-6" />
-                              Register
-                            </Link> */}
                           </div>
                         )}
                       </div>
@@ -334,48 +312,55 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Bottom Nav */}
         <div
-          className={`header_bottom hidden lg:block bg-primaryRed ${
+          className={`header_bottom hidden bg-primaryRed lg:block ${
             isScrolled ? "py-1 text-md" : "py-2 text-lg"
           }`}
         >
           <div className="container">
-            <ul className="flex gap-2 items-center">
-              <li className="text-white hover:text-gray-200 font-semibold">
+            <ul className="flex items-center gap-2">
+              <li className="font-semibold text-white hover:text-gray-200">
                 <Link href="/">Home</Link>
               </li>
 
-              <li className="text-white hover:text-gray-200 font-semibold">
+              <li className="font-semibold text-white hover:text-gray-200">
                 <Link href="/shop">Shop</Link>
               </li>
 
-              <li className="text-white hover:text-gray-200 font-semibold">
+              <li className="font-semibold text-white hover:text-gray-200">
                 <Link href="/about">About</Link>
               </li>
 
-              <li className="text-white hover:text-gray-200 font-semibold">
+              <li className="font-semibold text-white hover:text-gray-200">
                 <Link href="/contact">Contact</Link>
               </li>
 
               {session && (
-                <li className="text-white hover:text-gray-200 font-semibold">
-                  <Link href={getDashboardLink()}>
-                    Dashboard
-                  </Link>
+                <li className="font-semibold text-white hover:text-gray-200">
+                  <Link href={getDashboardLink()}>Dashboard</Link>
                 </li>
               )}
             </ul>
           </div>
         </div>
 
-        {/* Mobile Search */}
-        <div className="mobile_search lg:hidden flex justify-center mt-4">
-          <form className="w-full max-w-4xl flex justify-center">
+        <div className="mobile_search mt-4 flex justify-center px-4 lg:hidden">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative flex w-full max-w-4xl justify-center"
+          >
+            <Search
+              size={17}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
             <input
-              className="rounded px-4 py-2 border"
-              type="text"
-              placeholder="Search ..."
+              className="w-full rounded border py-2 pl-10 pr-4 outline-none transition focus:border-primaryRed focus:ring-2 focus:ring-red-100"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search products..."
+              aria-label="Search products"
             />
           </form>
         </div>
@@ -387,5 +372,5 @@ export default function Header() {
         setShowMobileMenu={setShowMobileMenu}
       />
     </>
-  )
+  );
 }

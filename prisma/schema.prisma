@@ -133,8 +133,6 @@ model Address {
 // =======================
 //
 
-
-
 model Brand {
   id   String  @id @default(cuid())
   name String  @unique
@@ -152,14 +150,13 @@ model Brand {
   @@index([sortOrder])
 }
 
-
 model Series {
   id String @id @default(cuid())
 
   name String
 
   brandId String
-  brand   Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   products Product[]
 
@@ -187,45 +184,35 @@ model Category {
 // 📱 PRODUCT
 // Example: iPhone 15, Galaxy S24
 //
-/*
-model Product {
-  id String @id @default(cuid())
-
-  name String
-  slug String @unique
-
-  description      String?
-  shortDescription String?
-
-  metaTitle       String?
-  metaDescription String?
-
-  brandId    String?
-  categoryId String?
-
-  isActive   Boolean @default(true)
-  isFeatured Boolean @default(false)
-
-  brand    Brand?    @relation(fields: [brandId], references: [id])
-  category Category? @relation(fields: [categoryId], references: [id])
-
-  images   ProductImage[]
-  variants ProductVariant[]
-
-  orderItems OrderItem[]
-
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  cartItems     CartItem[]
-  wishlistItems WishlistItem[]
-
-  @@index([brandId])
-  @@index([categoryId])
-  @@index([isActive])
-  @@index([isFeatured])
-  @@index([createdAt])
-}
-*/
+/**
+ * model Product {
+ * id String @id @default(cuid())
+ * name String
+ * slug String @unique
+ * description      String?
+ * shortDescription String?
+ * metaTitle       String?
+ * metaDescription String?
+ * brandId    String?
+ * categoryId String?
+ * isActive   Boolean @default(true)
+ * isFeatured Boolean @default(false)
+ * brand    Brand?    @relation(fields: [brandId], references: [id])
+ * category Category? @relation(fields: [categoryId], references: [id])
+ * images   ProductImage[]
+ * variants ProductVariant[]
+ * orderItems OrderItem[]
+ * createdAt     DateTime       @default(now())
+ * updatedAt     DateTime       @updatedAt
+ * cartItems     CartItem[]
+ * wishlistItems WishlistItem[]
+ * @@index([brandId])
+ * @@index([categoryId])
+ * @@index([isActive])
+ * @@index([isFeatured])
+ * @@index([createdAt])
+ * }
+ */
 
 model Product {
   id String @id @default(cuid())
@@ -236,10 +223,10 @@ model Product {
   description      String?
   shortDescription String?
 
-  metaTitle       String?
-  metaDescription String?
-  productSearchText String @default("") @db.Text
-  weightGrams Int?
+  metaTitle         String?
+  metaDescription   String?
+  productSearchText String  @default("") @db.Text
+  weightGrams       Int?
 
   brandId    String?
   categoryId String?
@@ -271,14 +258,8 @@ model Product {
   @@index([isFeatured])
   @@index([bestSelling])
   @@index([createdAt])
+  @@index([productSearchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_productSearchText_trgm_idx")
 }
-
-
-
-
-
-
-
 
 //
 // 📦 PRODUCT VARIANT
@@ -475,4 +456,31 @@ model WishlistItem {
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
+}
+
+model HeroSlide {
+  id String @id @default(cuid())
+
+  title       String
+  subtitle    String?
+  description String?
+
+  imageDesktop         String
+  imageDesktopPublicId String?
+
+  imageMobile         String?
+  imageMobilePublicId String?
+
+  buttonText String @default("Shop Now")
+  buttonLink String @default("/shop")
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([isActive, sortOrder])
 }

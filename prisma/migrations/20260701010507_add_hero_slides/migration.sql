@@ -1,0 +1,26 @@
+-- CreateTable
+CREATE TABLE "HeroSlide" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "subtitle" TEXT,
+    "description" TEXT,
+    "imageDesktop" TEXT NOT NULL,
+    "imageMobile" TEXT,
+    "buttonText" TEXT NOT NULL DEFAULT 'Shop Now',
+    "buttonLink" TEXT NOT NULL DEFAULT '/shop',
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "HeroSlide_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "HeroSlide_isActive_idx" ON "HeroSlide"("isActive");
+
+-- CreateIndex
+CREATE INDEX "HeroSlide_sortOrder_idx" ON "HeroSlide"("sortOrder");
+
+-- CreateIndex
+CREATE INDEX "HeroSlide_isActive_sortOrder_idx" ON "HeroSlide"("isActive", "sortOrder");
